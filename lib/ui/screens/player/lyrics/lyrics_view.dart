@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/perf_flags.dart';
 import '../../../../core/theme/flutify_tokens.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../models/app_preferences.dart';
@@ -866,9 +867,9 @@ class _LyricsViewState extends State<LyricsView>
           : null,
       child: NotificationListener<ScrollNotification>(
         onNotification: _onScrollNotification,
-        child: ShaderMask(
+        child: _EdgeMask(
+          enabled: !PerfFlags.noLyricsMask,
           // 上下边缘柔和淡出，歌词像从玻璃下方浮现
-          blendMode: BlendMode.dstIn,
           shaderCallback: (rect) => widget.appleMusicStyle
               ? _appleEdgeFade(rect)
               : const LinearGradient(
@@ -1221,4 +1222,26 @@ class _LoadingLines extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 歌词区上下边缘渐隐用的 dstIn 遮罩；[enabled] 为 false 时不套任何图层（仅诊断用）。
+class _EdgeMask extends StatelessWidget {
+  const _EdgeMask({
+    required this.enabled,
+    required this.shaderCallback,
+    required this.child,
+  });
+
+  final bool enabled;
+  final ShaderCallback shaderCallback;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => enabled
+      ? ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: shaderCallback,
+          child: child,
+        )
+      : child;
 }
