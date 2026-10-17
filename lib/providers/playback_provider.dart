@@ -60,8 +60,9 @@ class PlaybackProvider extends ChangeNotifier {
   /// 上次播放会话的存储；为空时不还原也不保存（测试默认）。
   final PlaybackSessionStore? sessionStore;
 
-  /// 启动时使用的循环方式（设置里的「默认循环方式」）；null 时沿用上次会话 / 不循环。
-  final SpotifyRepeatMode? defaultRepeatMode;
+  /// 设置里的「默认循环方式」；null 表示未设置，此时沿用上次会话。
+  /// 见 [defaultRepeatMode]。
+  SpotifyRepeatMode? _defaultRepeatMode;
   final Random _random;
 
   /// 远程播放接管（由 main.dart 接上 Spotify Connect）：点歌时先问它，返回 true 表示已交给远程设备播放，
@@ -287,7 +288,7 @@ class PlaybackProvider extends ChangeNotifier {
     Random? random,
     this.audioLoader,
     this.sessionStore,
-    this.defaultRepeatMode,
+    SpotifyRepeatMode? defaultRepeatMode,
   }) : _audio = audio,
        _random = random ?? Random(),
        _pauseAfterFailures = _storage.pauseAfterFailures,
@@ -297,8 +298,8 @@ class PlaybackProvider extends ChangeNotifier {
        _fadeSeconds = _storage.fadeSeconds.clamp(0, maxFadeSeconds) {
     _initAudioListeners();
     _applyVolume();
-    final repeat = defaultRepeatMode;
-    if (repeat != null) _repeatMode = repeat;
+    _defaultRepeatMode = defaultRepeatMode;
+    if (defaultRepeatMode != null) _repeatMode = defaultRepeatMode;
     // 有上次会话时还原为「暂停在上次的位置」；否则没有当前曲目，播放器条隐藏，直到用户点播一首歌
     _restoreSession();
   }
@@ -329,6 +330,20 @@ class PlaybackProvider extends ChangeNotifier {
   Duration get duration => _duration;
   bool get shuffle => _shuffle;
   SpotifyRepeatMode get repeatMode => _repeatMode;
+
+  /// 设置里的「默认循环方式」；null 表示不干预，循环方式由用户当场点的（或上次会话）决定。
+  SpotifyRepeatMode? get defaultRepeatMode => _defaultRepeatMode;
+
+  /// 设置页改动「默认循环方式」时同步进来。
+  ///
+  /// 它同时是当前循环方式：否则设置里选完要等下次启动才生效，
+  /// 用户在设置页看到的和播放器实际用的会不一致。
+  void updateDefaultRepeatMode(SpotifyRepeatMode? mode) {
+    if (mode == _defaultRepeatMode) return;
+    _defaultRepeatMode = mode;
+    if (mode != null) setRepeatMode(mode);
+  }
+
   double get volume => _volume;
 
   /// 连续 [failureLimit] 首无法播放时自动暂停，而不是继续跳过（设置页「播放」分组，持久化）。
@@ -1290,7 +1305,7 @@ class PlaybackProvider extends ChangeNotifier {
     _context = session.context;
     _shuffle = session.shuffle;
     // 设置里指定了默认循环方式时以它为准，否则沿用上次会话
-    _repeatMode = defaultRepeatMode ?? session.repeatMode;
+    _repeatMode = _defaultRepeatMode ?? session.repeatMode;
     // 保存的是播放顺序，还原后按自然顺序即为原来的顺序
     _contextTracks = List.of(session.tracks);
     _order = List.generate(_contextTracks.length, (i) => i);

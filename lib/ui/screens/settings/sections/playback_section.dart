@@ -23,9 +23,10 @@ class PlaybackSection extends StatelessWidget {
     final canvasEnabled = context.select<PreferencesProvider, bool>(
       (p) => p.prefs.canvasEnabled,
     );
-    final defaultRepeat = context.select<PreferencesProvider, SpotifyRepeatMode>(
-      (p) => p.prefs.defaultRepeatMode,
-    );
+    final defaultRepeat = context
+        .select<PreferencesProvider, SpotifyRepeatMode>(
+          (p) => p.prefs.defaultRepeatMode,
+        );
     final (pauseAfterFailures, normalize, fadeSeconds) = context
         .select<PlaybackProvider, (bool, bool, int)>(
           (p) => (p.pauseAfterFailures, p.normalizeVolume, p.fadeSeconds),
@@ -52,9 +53,14 @@ class PlaybackSection extends StatelessWidget {
               SpotifyRepeatMode.track => l10n.settingsRepeatTrack,
             },
             selected: defaultRepeat,
-            onChanged: (v) => preferences.update(
-              preferences.prefs.copyWith(defaultRepeatMode: v),
-            ),
+            // 除了存起来，还要当场同步给播放器：它才是循环方式的实际持有者，
+            // 否则设置里选完要等下次启动才生效（切歌单也会被旧的循环方式覆盖）。
+            onChanged: (v) {
+              preferences.update(
+                preferences.prefs.copyWith(defaultRepeatMode: v),
+              );
+              playback.updateDefaultRepeatMode(v);
+            },
           ),
         ),
         SettingsSwitchTile(
