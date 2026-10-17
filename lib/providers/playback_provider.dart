@@ -812,10 +812,14 @@ class PlaybackProvider extends ChangeNotifier {
     }
     _setLoading(false);
     if (canSkip) {
-      _consecutiveSkips++;
       // 后台切歌时链路断了：不弹提示，重放一次这首（同一首重来一次往往就成了）；
       // 不可播放类才换下一首。
-      await (unsuitable ? nextTrack(isAutoSkip: true) : _retryTrack());
+      //
+      // 网络类失败在这里不再重放：能走到这一步说明
+      // [_retryTrack] 的重放也失败了（[_transientRetried] 已经成立），
+      // 再重放就是死循环。只跳过，不重放。
+      _consecutiveSkips++;
+      await nextTrack(isAutoSkip: true);
     } else {
       notifyListeners();
     }
@@ -1170,8 +1174,11 @@ class PlaybackProvider extends ChangeNotifier {
   /// 不会再重放第三次，而是报错收手——所以不必在这里判断重放有没有成。
   Future<void> _retryTrack() async {
     _retriesUsed = 0;
-    _retryingTrack = true;
     _transientRetried = true;
+    // 闸门要一直立到重放彻底结束：重放失败时 [_handleLoadFailure] 会在
+    // `_startTrack` 内部同步再跑一遍，那时 [_transientRetried] 已经为真，
+    // 唯一拦住「再来一次重放」的就是这一位。等它返回之后再放下。
+    _retryingTrack = true;
     try {
       await _startTrack(_currentTrack!, isRetry: true);
     } finally {
