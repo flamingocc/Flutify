@@ -63,6 +63,12 @@ class PlaybackProvider extends ChangeNotifier {
   /// 设置里的「默认循环方式」；null 表示未设置，此时沿用上次会话。
   /// 见 [defaultRepeatMode]。
   SpotifyRepeatMode? _defaultRepeatMode;
+
+  /// 本次会话里用户自己改过循环方式（点了播放器上的循环键，或刚在设置里选过）。
+  ///
+  /// 一旦改过，设置里的「默认循环方式」就不该再动它——否则切一次歌单，
+  /// 用户刚选的循环方式就被设置里的默认值冲掉了。
+  bool _repeatTouched = false;
   final Random _random;
 
   /// 远程播放接管（由 main.dart 接上 Spotify Connect）：点歌时先问它，返回 true 表示已交给远程设备播放，
@@ -341,7 +347,10 @@ class PlaybackProvider extends ChangeNotifier {
   void updateDefaultRepeatMode(SpotifyRepeatMode? mode) {
     if (mode == _defaultRepeatMode) return;
     _defaultRepeatMode = mode;
-    if (mode != null) setRepeatMode(mode);
+    if (mode == null) return;
+    // 刚在设置里选的值同时也是用户的选择：切歌单时该留下的是它，不是上一次的设置值。
+    _repeatTouched = true;
+    setRepeatMode(mode);
   }
 
   double get volume => _volume;
@@ -560,6 +569,9 @@ class PlaybackProvider extends ChangeNotifier {
       _order = List.generate(n, (i) => i);
       _orderPos = currentIndex;
     }
+    if (!_repeatTouched && _defaultRepeatMode != null) {
+      setRepeatMode(_defaultRepeatMode!);
+    }
   }
 
   Future<void> _startTrack(
@@ -571,6 +583,7 @@ class PlaybackProvider extends ChangeNotifier {
     final intent = ++_playIntent;
     _isStartingPlayback = !deferLoad;
     if (deferLoad) _isPlaying = false;
+    _repeatTouched = false;
     if (!isRetry) {
       // 新的手动播放尝试（含自动跳过的下一首）：重试预算重新计
       _retryingTrack = false;
@@ -1284,6 +1297,7 @@ class PlaybackProvider extends ChangeNotifier {
   }
 
   void cycleRepeatMode() {
+    _repeatTouched = true;
     setRepeatMode(switch (_repeatMode) {
       SpotifyRepeatMode.off => SpotifyRepeatMode.context,
       SpotifyRepeatMode.context => SpotifyRepeatMode.track,
