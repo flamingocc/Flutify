@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/scheduler.dart';
 
 import '../models/audio_playback_info.dart';
 import 'package:just_audio/just_audio.dart';
@@ -109,16 +108,10 @@ class PlaybackProvider extends ChangeNotifier {
   /// 记一次重试。调用方必须已经用 [_budgetExhausted] 确认还有预算。
   int _takeRetry() => ++_retriesUsed;
 
+  /// 退避等待的握手：切歌 / 登出 / 用户取消时由 [_cancelRetry] 完成，
+  /// 等待方据此提前收手，不再空等到点。
   Completer<void>? _retryWait;
   final ValueNotifier<PlaybackRetry?> retryNotifier = ValueNotifier(null);
-
-  /// 退避等待的时钟，只在等待期间走动（[ValueNotifier.value] = 已等待的秒数）。
-  ///
-  /// 不用 `Timer`：定时器由事件循环按真实时间触发，在 `testWidgets` 的假时钟里
-  /// `pump(Duration)` 不会让它提前——一次退避要真的等满 1+2+…+10 = 55 秒，
-  /// 于是任何一条走完重试预算的用例都要挂满超时。这里把等待挂到下一帧，
-  /// 假时钟推进帧时等待自然跟着推进，测试和界面用的是同一条时钟。
-  final ValueNotifier<double> _retryElapsed = ValueNotifier<double>(0);
 
   void _cancelRetry() {
     final wait = _retryWait;
@@ -144,36 +137,12 @@ class PlaybackProvider extends ChangeNotifier {
     final wait = Completer<void>();
     _retryWait = wait;
     retryNotifier.value = PlaybackRetry(attempt, delay);
-    await _holdFor(delay, wait);
-    if (!wait.isCompleted) wait.complete();
+    await Future<void>.delayed(delay);
+    if (wait.isCompleted) return false;
     if (generation != _loadGeneration) return false;
     _retryWait = null;
     retryNotifier.value = PlaybackRetry(attempt, delay, waiting: false);
     return true;
-  }
-
-  /// 等 [delay]，期间把 [_retryElapsed] 推到 [delay]。[wait] 被取消（取消退避 / 切歌 /
-  /// 登出）时立刻返回，不再空等到点。
-  ///
-  /// 到达终点时也要推最后一下：假时钟下每次推进都会把计时器精确设成目标值，
-  /// 若只在「还没到」时赋值，最后一格永远差一帧才完成。
-  Future<void> _holdFor(Duration delay, Completer<void> wait) async {
-    final seconds = delay.inMicroseconds / 1e6;
-    _retryElapsed.value = 0;
-    while (!wait.isCompleted && _retryElapsed.value < seconds) {
-      await _nextFrame();
-    }
-    _retryElapsed.value = seconds;
-  }
-
-  /// 等到下一帧。[SchedulerBinding.scheduleFrameCallback] 在测试里由
-  /// `pump` 的假时钟驱动，和界面共用同一条时间线。
-  Future<void> _nextFrame() {
-    final frame = Completer<void>();
-    SchedulerBinding.instance.scheduleFrameCallback((_) {
-      if (!frame.isCompleted) frame.complete();
-    });
-    return frame.future;
   }
 
   /// 已经把音频交给播放器的曲目 id；与当前曲目不一致时，点播放需要（重新）加载。
@@ -1566,7 +1535,6 @@ class PlaybackProvider extends ChangeNotifier {
     positionNotifier.dispose();
     loadProgressNotifier.dispose();
     retryNotifier.dispose();
-    _retryElapsed.dispose();
     _audio.dispose();
     super.dispose();
   }

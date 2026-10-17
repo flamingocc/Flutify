@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutify_app/models/playback_context.dart';
+import 'package:flutify_app/models/playback_retry.dart';
 import 'package:flutify_app/models/playback_state.dart';
 import 'package:flutify_app/providers/playback_provider.dart';
 import 'package:flutify_app/services/protocol/track_playback_exception.dart';
@@ -271,14 +272,31 @@ void main() {
           await tester.pump(const Duration(milliseconds: 1));
         }
         await pending;
-        expect(attempts, List.generate(10, (i) => i + 1));
-        expect(loader.loaded.length, 11);
         expect(playback.currentTrack?.id, a.id);
         expect(playback.playbackError?.kind, TrackPlaybackFailure.network);
         expect(playback.retryNotifier.value, isNull);
         expect(playback.isBuffering, isFalse);
+
+        // 预算用光又没改变结果（两轮各 10 次）后就不再自己循环：
+        // 这一次没加载上的预算留给用户点「重试」（那是一次新的手动播放尝试）。
+        expect(
+          loader.loaded.length,
+          1 + PlaybackRetry.limit * 2,
+          reason: '退避重试一轮后重放，重放一轮后收手，不能越挫越勇',
+        );
+        expect(
+          attempts,
+          List.generate(
+            PlaybackRetry.limit * 2,
+            (i) => i % PlaybackRetry.limit + 1,
+          ),
+        );
         await tester.pump(const Duration(minutes: 1));
-        expect(loader.loaded.length, 11);
+        expect(
+          loader.loaded.length,
+          1 + PlaybackRetry.limit * 2,
+          reason: '报错之后再等多久也不会自己再来一轮',
+        );
       },
     );
 
