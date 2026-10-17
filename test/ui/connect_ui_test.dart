@@ -942,14 +942,10 @@ void main() {
           findsOneWidget,
         );
 
-        // 打开队列后控制卡片会自动收起（底栏换成迷你栏）；像真实用户一样先动一下鼠标唤醒
-        final wake = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        await wake.addPointer(location: Offset.zero);
-        await wake.moveTo(tester.getCenter(screen) + const Offset(3, 3));
-        await wake.moveTo(tester.getCenter(screen));
+        // 打开队列后控制卡片会自动收起。悬停和滚轮不再展开，要点卡片本身。
+        await tester.tap(find.byKey(const ValueKey('lyrics-control-card')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 800));
-        await wake.removePointer();
         // 再点一次回到封面
         await tester.tap(
           find.descendant(
