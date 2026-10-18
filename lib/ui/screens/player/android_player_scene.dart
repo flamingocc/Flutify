@@ -124,8 +124,7 @@ class _AndroidPlayerSceneState extends State<AndroidPlayerScene>
   late final AnimationController _expand;
   bool _expanded = false;
   bool _initialExpandDone = false;
-  bool get _cardMode =>
-      widget.controlsOnLeft || widget.lyricsMode || widget.queueMode;
+  bool get _cardMode => widget.lyricsMode || widget.queueMode;
 
   @override
   void initState() {
@@ -192,10 +191,7 @@ class _AndroidPlayerSceneState extends State<AndroidPlayerScene>
       reduceMotion: context.reduceMotion,
       accessibleNavigation: MediaQuery.accessibleNavigationOf(context),
     );
-    _motion.setView(
-      lyrics: widget.lyricsMode || (widget.controlsOnLeft && !widget.queueMode),
-      queue: widget.queueMode,
-    );
+    _motion.setView(lyrics: widget.lyricsMode, queue: widget.queueMode);
     _motion.setInteractionSuspended(widget.interactionSuspended);
     _tickerEnabled = TickerMode.valuesOf(context).enabled;
     _motion.setActive(_appActive && _tickerEnabled);
@@ -205,10 +201,7 @@ class _AndroidPlayerSceneState extends State<AndroidPlayerScene>
   void didUpdateWidget(AndroidPlayerScene oldWidget) {
     super.didUpdateWidget(oldWidget);
     _queueMounted = _queueMounted || widget.queueMode;
-    _motion.setView(
-      lyrics: widget.lyricsMode || (widget.controlsOnLeft && !widget.queueMode),
-      queue: widget.queueMode,
-    );
+    _motion.setView(lyrics: widget.lyricsMode, queue: widget.queueMode);
     _motion.setInteractionSuspended(widget.interactionSuspended);
     _motion.setPinned(widget.pinned);
     if (!_cardMode && _expanded) {
@@ -307,13 +300,9 @@ class _AndroidPlayerSceneState extends State<AndroidPlayerScene>
         animation: Listenable.merge([_motion, _expand]),
         builder: (context, _) {
           final progress = _motion.transition.value;
-          final lyricsProgress = widget.controlsOnLeft && !widget.lyricsMode
-              ? 0.0
-              : _motion.lyricsProgress;
+          final lyricsProgress = _motion.lyricsProgress;
           final queueProgress = _motion.queueTransition.value;
-          final hasLyrics =
-              widget.lyricsMode ||
-              (!widget.controlsOnLeft && lyricsProgress > 0);
+          final hasLyrics = widget.lyricsMode || lyricsProgress > 0;
           // Neither pane owns gestures/accessibility during the crossfade:
           // a tap on an outgoing row must not play or seek the incoming pane.
           final lyricsInteractive = widget.lyricsMode && lyricsProgress == 1;

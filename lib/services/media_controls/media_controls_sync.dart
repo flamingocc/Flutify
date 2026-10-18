@@ -135,11 +135,11 @@ class MediaControlsSync {
   MediaPlaybackInfo _playbackInfo() {
     if (_remote) return _override!.playbackInfo;
     final hasError = playback.playbackError != null;
-    final activelyPlaying = playback.isPlaying && !hasError;
-    final starting = playback.isPlaybackActive && !activelyPlaying;
     return MediaPlaybackInfo(
-      playing: activelyPlaying,
-      buffering: playback.isBuffering || starting || hasError,
+      playing: !hasError && playback.isPlaybackActive,
+      buffering: playback.isBuffering ||
+          (playback.isPlaybackActive && !playback.isPlaying) ||
+          hasError,
       position: playback.position,
       canNext: playback.canSkipNext,
       // 有上一首时直接切歌；没有上一首时回到本曲开头。

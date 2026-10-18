@@ -296,11 +296,11 @@ class _PlayerSceneViewState extends State<PlayerSceneView> {
           child: ValueListenableBuilder<double>(
             valueListenable: _expandN,
             builder: (context, expandVal, _) {
-              final showHoverCanvasBtn =
-                  widget.controlsOnLeft && expandVal > 0.5;
-              final canvasActive = widget.controlsOnLeft
-                  ? _canvasPlaying
-                  : (progress == 0 && _view == PlayerView.artwork);
+              // 无论是展开卡片内的大封面，还是取消歌词/队列后回到封面视图，
+              // 都不自动播放 Canvas，而是在放大封面的右下角提供鼠标悬浮才显示的播放/停止 Canvas 按钮
+              final isEnlarged = (progress == 0 && _view == PlayerView.artwork) ||
+                  (widget.controlsOnLeft && expandVal > 0.5);
+              final canvasActive = _canvasPlaying;
               return MouseRegion(
                 onEnter: (_) {
                   if (!_hoveringArtwork) {
@@ -340,10 +340,10 @@ class _PlayerSceneViewState extends State<PlayerSceneView> {
                             ),
                           ),
                         ),
-                        if (showHoverCanvasBtn)
+                        if (isEnlarged)
                           Positioned(
-                            right: 10,
-                            bottom: 10,
+                            right: 12,
+                            bottom: 12,
                             child: AnimatedOpacity(
                               opacity: _hoveringArtwork ? 1.0 : 0.0,
                               duration: context.motion(
@@ -358,7 +358,7 @@ class _PlayerSceneViewState extends State<PlayerSceneView> {
                                     icon: _canvasPlaying
                                         ? Icons.motion_photos_pause_rounded
                                         : Icons.motion_photos_on_rounded,
-                                    size: 36,
+                                    size: 38,
                                     selected: _canvasPlaying,
                                     tooltip: _canvasPlaying
                                         ? '停止 Canvas'
