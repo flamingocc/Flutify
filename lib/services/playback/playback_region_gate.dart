@@ -34,6 +34,17 @@ class PlaybackRegionGate {
   /// 网络环境变化且开启了「网络变动时自动复查」时的通知（由播放器订阅以在播中实时复检）。
   VoidCallback? onNetworkChanged;
 
+  /// 是否有正在播放的播放器挂载了网络变动监听。
+  bool get hasActivePlaybackListener => onNetworkChanged != null;
+
+  /// 在播放期间实时复检出口：作废结论并立即通知播放器复核，中途切回大陆出口立即打断。
+  void recheckLive() {
+    if (!_enabled() || _skipThisRun() || !_recheckOnNetworkChange()) return;
+    _known = null;
+    _inFlight = null;
+    onNetworkChanged?.call();
+  }
+
   /// 与登录页共用的 WebView2 环境（同一用户数据目录只允许一个实例）。
   WebViewEnvironment? _environment;
 

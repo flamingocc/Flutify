@@ -72,6 +72,10 @@ class PlaybackProvider extends ChangeNotifier {
   /// 本机不再加载；[start] 为 null 表示从头播放整个上下文。为空或返回 false 时照常在本机播放。
   RemotePlayHandler? remotePlay;
 
+  /// 本机修改随机 / 循环时与服务端同步的钩子：等服务端确认后再在前端应用，彻底消除抖动。
+  Future<bool> Function({bool? shuffle, SpotifyRepeatMode? repeat})?
+  syncOptionsBeforeApply;
+
   /// 还原会话后、或尚未加载音频时拖动进度条：下次加载这首歌时从这里开始播放。
   Duration? _resumeAt;
 
@@ -1038,10 +1042,16 @@ class PlaybackProvider extends ChangeNotifier {
   }
 
   Future<void> _recheckActivePlaybackRegion(SpotifyTrack track) async {
-    final blocked = await _blockOnRegion(track);
-    if (!blocked) return;
+    final gate = regionGate;
+    if (gate == null) return;
+    final block = await gate.ensureAllowed();
+    if (block == null) return;
     if (_currentTrack?.id == track.id) {
+      final savedPos = position;
       await pause();
+      _loadedTrackId = null;
+      _resumeAt = savedPos;
+      await _blockOnRegion(track);
     }
   }
 
@@ -1334,8 +1344,14 @@ class PlaybackProvider extends ChangeNotifier {
     await _audio.seek(clamped);
   }
 
-  void toggleShuffle() {
-    _shuffle = !_shuffle;
+  Future<void> toggleShuffle() async {
+    final next = !_shuffle;
+    final sync = syncOptionsBeforeApply;
+    if (sync != null) {
+      final ok = await sync(shuffle: next);
+      if (!ok) return;
+    }
+    _shuffle = next;
     if (_order.isNotEmpty) _rebuildOrder(_order[_orderPos]);
     _scheduleSave();
     _prefetchNext();
@@ -1344,7 +1360,13 @@ class PlaybackProvider extends ChangeNotifier {
 
   /// 直接设定随机（Connect 远程命令用）；与当前相同时不重排。
   void setShuffle(bool value) {
-    if (value != _shuffle) toggleShuffle();
+    if (value != _shuffle) {
+      _shuffle = value;
+      if (_order.isNotEmpty) _rebuildOrder(_order[_orderPos]);
+      _scheduleSave();
+      _prefetchNext();
+      notifyListeners();
+    }
   }
 
   /// 直接设定循环方式（Connect 远程命令用）。
@@ -1357,12 +1379,18 @@ class PlaybackProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void cycleRepeatMode() {
-    setRepeatMode(switch (_repeatMode) {
+  Future<void> cycleRepeatMode() async {
+    final next = switch (_repeatMode) {
       SpotifyRepeatMode.off => SpotifyRepeatMode.context,
       SpotifyRepeatMode.context => SpotifyRepeatMode.track,
       SpotifyRepeatMode.track => SpotifyRepeatMode.off,
-    });
+    };
+    final sync = syncOptionsBeforeApply;
+    if (sync != null) {
+      final ok = await sync(repeat: next);
+      if (!ok) return;
+    }
+    setRepeatMode(next);
   }
 
   // ---------------------------------------------------------------------------

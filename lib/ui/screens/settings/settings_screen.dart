@@ -5,7 +5,6 @@ import '../../../l10n/l10n.dart';
 import '../../../services/auth/web_token_service.dart';
 import '../../shell/shell_breakpoints.dart';
 import 'sections/about_section.dart';
-import 'sections/animation_debug_section.dart';
 import 'sections/update_section.dart';
 import 'sections/accent_section.dart';
 import 'sections/appearance_section.dart';
@@ -66,7 +65,6 @@ const List<Widget> _singleColumn = [
   GlassSection(),
   TextShapeSection(),
   MotionSection(),
-  AnimationDebugSection(),
   LanguageSection(),
   ConnectSection(),
   NetworkSection(),
@@ -139,7 +137,6 @@ class _DesktopSettings extends StatelessWidget {
                           const AppearanceSection(),
                           const TextShapeSection(),
                           const MotionSection(),
-                          const AnimationDebugSection(),
                           const LyricsSection(),
                           const TaskbarLyricsSection(),
                           const LanguageSection(),

@@ -29,7 +29,9 @@ class _AutomaticGatewayBindingState extends State<AutomaticGatewayBinding>
   NetworkProxy? _proxy;
   Timer? _timer;
   Timer? _debounce;
+  Timer? _proxyWatcher;
   StreamSubscription<List<ConnectivityResult>>? _network;
+  String? _lastProxyKey;
 
   @override
   void initState() {
@@ -38,6 +40,24 @@ class _AutomaticGatewayBindingState extends State<AutomaticGatewayBinding>
     if (_proxy == null) return;
     WidgetsBinding.instance.addObserver(this);
     _timer = Timer.periodic(const Duration(minutes: 2), (_) => _refresh());
+
+    // Windows 切换代理（Clash / v2rayN 开关系统代理）不一定会触发网卡断开重连，
+    // 这里每 2.5 秒快速轮询一次系统代理状态与在播实时出口，代理一关即可在数秒内打断播放
+    _lastProxyKey = _proxy?.system.toString();
+    _proxyWatcher = Timer.periodic(const Duration(milliseconds: 2500), (_) async {
+      final proxy = _proxy;
+      if (proxy == null) return;
+      await proxy.refreshSystem();
+      final currentKey = proxy.system.toString();
+      final changed = currentKey != _lastProxyKey;
+      _lastProxyKey = currentKey;
+      if (changed) {
+        widget.regionGate?.markNetworkChanged();
+      } else if (widget.regionGate?.hasActivePlaybackListener == true) {
+        widget.regionGate?.recheckLive();
+      }
+    });
+
     _network = Connectivity().onConnectivityChanged.listen((_) {
       _debounce?.cancel();
       _debounce = Timer(const Duration(seconds: 1), () {
@@ -61,6 +81,7 @@ class _AutomaticGatewayBindingState extends State<AutomaticGatewayBinding>
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _debounce?.cancel();
+    _proxyWatcher?.cancel();
     unawaited(_network?.cancel());
     super.dispose();
   }

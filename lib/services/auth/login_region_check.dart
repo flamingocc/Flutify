@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../core/platform/flutify_platform.dart';
+import '../network/network_proxy.dart';
 
 /// 登录前的网络出口地区检测结果。
 @immutable
@@ -80,11 +81,21 @@ class LoginRegionCheck {
     List<String> urls = endpoints,
     Duration perEndpoint = const Duration(seconds: 8),
   }) async {
-    if (FlutifyPlatform.isTest || !FlutifyPlatform.supportsInAppWebView) {
+    if (FlutifyPlatform.isTest) {
       return const LoginRegion.unknown();
     }
     // 用户已经选了「本次打开跳过」：不再费一次无头 WebView 的开销
     if (_skippedThisRun) return const LoginRegion.unknown();
+
+    // 先走快速 HTTP 探针（无连接池缓存、直接走当前系统代理或直连，大陆直连 <150ms 即可读到 loc=CN）
+    try {
+      final code = await NetworkProxy.instance.probeCurrentCountry();
+      if (code != null) return LoginRegion(code);
+    } catch (_) {}
+
+    if (!FlutifyPlatform.supportsInAppWebView) {
+      return const LoginRegion.unknown();
+    }
     for (final url in urls) {
       final code = await _probe(url, environment, perEndpoint);
       if (code != null) return LoginRegion(code);

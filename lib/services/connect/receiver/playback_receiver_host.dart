@@ -47,21 +47,36 @@ class PlaybackReceiverHost implements ReceiverHost {
   int _handoverGeneration = 0;
 
   /// 本机改了随机 / 循环时调用：经 Connect 命令发给服务端（本机即目标设备），其他设备同步显示。
-  void Function(bool shuffle, SpotifyRepeatMode repeat)? onLocalOptions;
+  Future<bool> Function({
+    bool? shuffle,
+    bool? repeatContext,
+    bool? repeatTrack,
+  })?
+  onLocalOptions;
   bool _applyingOptions = false;
   late bool _lastShuffle = playback.shuffle;
   late SpotifyRepeatMode _lastRepeat = playback.repeatMode;
+
+  bool _optionsPending = false;
+  Timer? _optionsTimer;
+  bool? _expectedShuffle;
+  SpotifyRepeatMode? _expectedRepeat;
 
   PlaybackReceiverHost(
     this.playback, {
     this.handoverRetryDelay = const Duration(seconds: 2),
   }) : _lastVolume = playback.volume {
+    playback.syncOptionsBeforeApply = syncLocalOptions;
     playback.addListener(_onPlaybackChanged);
     playback.positionNotifier.addListener(_onPosition);
   }
 
   void dispose() {
     _disposed = true;
+    _optionsTimer?.cancel();
+    if (identical(playback.syncOptionsBeforeApply, syncLocalOptions)) {
+      playback.syncOptionsBeforeApply = null;
+    }
     ++_handoverGeneration;
     _handoverRetry?.cancel();
     playback.removeListener(_onPlaybackChanged);
@@ -122,26 +137,63 @@ class PlaybackReceiverHost implements ReceiverHost {
   @override
   int get positionMs => playback.position.inMilliseconds;
 
+  Future<bool> syncLocalOptions({
+    bool? shuffle,
+    SpotifyRepeatMode? repeat,
+  }) async {
+    final sender = onLocalOptions;
+    if (!receiver.isActive || sender == null) return true;
+    _optionsTimer?.cancel();
+    _optionsPending = true;
+    _expectedShuffle = shuffle;
+    _expectedRepeat = repeat;
+    if (shuffle != null) _lastShuffle = shuffle;
+    if (repeat != null) _lastRepeat = repeat;
+    _optionsTimer = Timer(const Duration(seconds: 5), () {
+      _optionsPending = false;
+      _expectedShuffle = null;
+      _expectedRepeat = null;
+    });
+    final ok = await sender(
+      shuffle: shuffle,
+      repeatContext: repeat == null ? null : repeat != SpotifyRepeatMode.off,
+      repeatTrack: repeat == null ? null : repeat == SpotifyRepeatMode.track,
+    );
+    if (!ok) {
+      _optionsPending = false;
+      _optionsTimer?.cancel();
+    }
+    return ok;
+  }
+
   @override
   void applyOptions(TpOptions options) {
     _applyingOptions = true;
-    if (options.shuffle case final shuffle?) playback.setShuffle(shuffle);
-    if (options.repeatTrack != null || options.repeatContext != null) {
-      final track =
-          options.repeatTrack ?? playback.repeatMode == SpotifyRepeatMode.track;
-      final context =
-          options.repeatContext ?? playback.repeatMode != SpotifyRepeatMode.off;
-      playback.setRepeatMode(
-        track
-            ? SpotifyRepeatMode.track
-            : context
-            ? SpotifyRepeatMode.context
-            : SpotifyRepeatMode.off,
-      );
+    try {
+      if (_optionsPending) {
+        final matchesRepeat =
+            _expectedRepeat == null || _repeatModeOf(options) == _expectedRepeat;
+        final matchesShuffle =
+            _expectedShuffle == null || options.shuffle == _expectedShuffle;
+        if (!matchesRepeat || !matchesShuffle) return;
+        _optionsPending = false;
+        _optionsTimer?.cancel();
+      }
+      if (options.shuffle case final shuffle?) playback.setShuffle(shuffle);
+      if (options.repeatTrack != null || options.repeatContext != null) {
+        playback.setRepeatMode(_repeatModeOf(options));
+      }
+      _lastShuffle = playback.shuffle;
+      _lastRepeat = playback.repeatMode;
+    } finally {
+      _applyingOptions = false;
     }
-    _lastShuffle = playback.shuffle;
-    _lastRepeat = playback.repeatMode;
-    _applyingOptions = false;
+  }
+
+  static SpotifyRepeatMode _repeatModeOf(TpOptions options) {
+    if (options.repeatTrack == true) return SpotifyRepeatMode.track;
+    if (options.repeatContext == true) return SpotifyRepeatMode.context;
+    return SpotifyRepeatMode.off;
   }
 
   @override
@@ -268,11 +320,20 @@ class PlaybackReceiverHost implements ReceiverHost {
       );
     }
     if (!_applyingOptions &&
+        !_optionsPending &&
         (playback.shuffle != _lastShuffle ||
             playback.repeatMode != _lastRepeat)) {
+      final shuffleChanged = playback.shuffle != _lastShuffle;
+      final repeatChanged = playback.repeatMode != _lastRepeat;
       _lastShuffle = playback.shuffle;
       _lastRepeat = playback.repeatMode;
-      if (receiver.isActive) onLocalOptions?.call(_lastShuffle, _lastRepeat);
+      if (receiver.isActive) {
+        onLocalOptions?.call(
+          shuffle: shuffleChanged ? _lastShuffle : null,
+          repeatContext: repeatChanged ? _lastRepeat != SpotifyRepeatMode.off : null,
+          repeatTrack: repeatChanged ? _lastRepeat == SpotifyRepeatMode.track : null,
+        );
+      }
     }
     if ((playback.volume - _lastVolume).abs() > 0.01) {
       _lastVolume = playback.volume;

@@ -143,11 +143,13 @@ class TaskbarLyricsControls implements SystemMediaControls {
   Future<void> setPlayback(MediaPlaybackInfo info) async {
     _playback = info;
     _playbackAt = DateTime.now();
-    if (_enabled)
+    if (_enabled) {
+      final activelyPlaying = info.playing && !info.buffering;
       await _platform.setPlayback(
-        playing: info.playing,
+        playing: activelyPlaying,
         position: info.position,
       );
+    }
   }
 
   @override
@@ -168,12 +170,13 @@ class TaskbarLyricsControls implements SystemMediaControls {
     await _pushTrack();
     final playback = _playback;
     if (playback != null) {
-      // 开启时距上次推送已过去一段时间：按经过的时间补上进度
-      final elapsed = playback.playing
+      // 开启时距上次推送已过去一段时间：若正在出声，按经过的时间补上进度
+      final activelyPlaying = playback.playing && !playback.buffering;
+      final elapsed = activelyPlaying
           ? DateTime.now().difference(_playbackAt)
           : Duration.zero;
       await _platform.setPlayback(
-        playing: playback.playing,
+        playing: activelyPlaying,
         position: playback.position + elapsed,
       );
     }

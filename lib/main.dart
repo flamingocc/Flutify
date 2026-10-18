@@ -730,11 +730,12 @@ void _startConnectReceiver(
   host.handOver = handOver;
   // 返回给 host：它在等服务端确认本机刚改的随机 / 循环，确认一到（true）或被拒（false）
   // 就解除等待，让服务端的值重新生效。
-  host.onLocalOptions = (shuffle, repeat) => connect.setReceiverOptions(
-    shuffle: shuffle,
-    repeatContext: repeat != SpotifyRepeatMode.off,
-    repeatTrack: repeat == SpotifyRepeatMode.track,
-  );
+  host.onLocalOptions = ({shuffle, repeatContext, repeatTrack}) =>
+      connect.setReceiverOptions(
+        shuffle: shuffle,
+        repeatContext: repeatContext,
+        repeatTrack: repeatTrack,
+      );
 
   // 「启动时同步播放状态」：每次启动只做一次。注册后要等设备出现在 cluster 里（推送有延迟），
   // 本机未播放、其他设备也没在出声时，把上次的曲目以暂停状态同步出去
