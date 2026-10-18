@@ -9,6 +9,7 @@ import 'sections/animation_debug_section.dart';
 import 'sections/update_section.dart';
 import 'sections/accent_section.dart';
 import 'sections/appearance_section.dart';
+import 'sections/backup_section.dart';
 import 'sections/connect_section.dart';
 import 'sections/glass_section.dart';
 import 'sections/language_section.dart';
@@ -70,6 +71,7 @@ const List<Widget> _singleColumn = [
   ConnectSection(),
   NetworkSection(),
   RegionCheckSection(),
+  BackupSection(),
   StorageSection(),
   PrivacySection(),
   StartupSection(),
@@ -158,6 +160,7 @@ class _DesktopSettings extends StatelessWidget {
                           AccentSection(),
                           GlassSection(),
                           ConnectSection(),
+                          BackupSection(),
                           StorageSection(),
                           PrivacySection(),
                         ],

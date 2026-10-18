@@ -99,15 +99,15 @@ class WebTokenService {
 
   // --- token 铸造 ---
 
-  /// 铸造一个 Web 播放器 access_token。需要 [spDc] 已设置。
-  /// 返回 (token, expiryEpochMs)。失败抛异常。
-  Future<({String token, int expiryMs})> mintAccessToken() async {
-    final epoch = _storage.sessionEpoch;
-    _storage.checkSession(epoch);
-    final dc = _storage.spDc;
-    if (dc.isEmpty) {
+  /// 用给定的 [spDc] 独立铸造一个 Web access_token（不改动主账号存储，供多账号歌单备份复用）。
+  static Future<({String token, int expiryMs})> mintTokenForSpDc(
+    String spDc, {
+    http.Client? client,
+  }) async {
+    if (spDc.isEmpty) {
       throw WebSignInRequiredException();
     }
+    final httpClient = client ?? http.Client();
     final secret = _deobfuscateSecret(_obfuscatedSecretV61);
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final totpNow = totp(secret, nowMs);
@@ -115,7 +115,7 @@ class WebTokenService {
     // 服务器时间对齐（可选，失败则 unavailable）
     String totpServer = 'unavailable';
     try {
-      final st = await _client
+      final st = await httpClient
           .get(Uri.parse(_serverTimeEndpoint))
           .timeout(const Duration(seconds: 4));
       final serverTime = jsonDecode(st.body)['serverTime'];
@@ -124,7 +124,6 @@ class WebTokenService {
       }
     } catch (_) {}
 
-    _storage.checkSession(epoch);
     final uri = Uri.parse(_tokenEndpoint).replace(
       queryParameters: {
         'reason': 'transport',
@@ -134,11 +133,11 @@ class WebTokenService {
         'totpServer': totpServer,
       },
     );
-    final res = await _client
+    final res = await httpClient
         .get(
           uri,
           headers: {
-            'Cookie': 'sp_dc=$dc',
+            'Cookie': 'sp_dc=$spDc',
             'User-Agent':
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36',
             'Accept': 'application/json',
@@ -156,10 +155,24 @@ class WebTokenService {
     final expiryMs =
         (body['accessTokenExpirationTimestampMs'] as num?)?.toInt() ??
         (nowMs + 3600 * 1000);
-    await _storage.writeSession(epoch, [
-      () => _storage.setWebAccessToken(token, expiryMs),
-    ]);
     return (token: token, expiryMs: expiryMs);
+  }
+
+  /// 铸造一个 Web 播放器 access_token。需要 [spDc] 已设置。
+  /// 返回 (token, expiryEpochMs)。失败抛异常。
+  Future<({String token, int expiryMs})> mintAccessToken() async {
+    final epoch = _storage.sessionEpoch;
+    _storage.checkSession(epoch);
+    final dc = _storage.spDc;
+    if (dc.isEmpty) {
+      throw WebSignInRequiredException();
+    }
+    final minted = await mintTokenForSpDc(dc, client: _client);
+    _storage.checkSession(epoch);
+    await _storage.writeSession(epoch, [
+      () => _storage.setWebAccessToken(minted.token, minted.expiryMs),
+    ]);
+    return minted;
   }
 
   /// 取一个可用的 Web access_token：缓存未过期直接用，否则重新铸造。

@@ -68,6 +68,9 @@ class StorageService {
 
   /// 用户在本机创建 / 保存的歌单（不随账号同步；远端 rootlist 歌单缓存在 [keyLibraryPlaylists]）。
   static const String keyLibraryLocalPlaylists = 'lib_playlists_local';
+
+  /// 歌单备份落盘键（各备份账号及已落盘的收藏曲目 / 歌单快照）。
+  static const String keyPlaylistBackups = 'backup_accounts_v1';
   static const String _keyLibraryAccount = 'lib_account'; // 媒体库缓存所属账号
   static const String _keyLibrarySchema = 'lib_schema'; // 缓存结构版本（旧版含示例数据）
 

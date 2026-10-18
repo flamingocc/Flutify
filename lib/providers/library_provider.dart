@@ -77,7 +77,8 @@ class LibraryProvider extends ChangeNotifier {
   /// 最近一次「同步到账号」失败的说明（点赞 / 收藏 / 关注在本地已生效但未写入账号）；UI 可提示并调用 [clearSyncError]。
   String? get syncError => _syncError;
 
-  bool isOwnPlaylist(String id) => id.startsWith('local_');
+  bool isOwnPlaylist(String id) =>
+      id.startsWith('local_') || id.startsWith('backup_');
 
   bool isLiked(String trackId) => _likedIds.contains(trackId);
   bool isPlaylistSaved(String id) => _playlists.any((p) => p.id == id);
@@ -280,6 +281,19 @@ class LibraryProvider extends ChangeNotifier {
     _storage.writeJsonList(StorageService.keyLibraryAlbums, _albums.map((a) => a.toJson()));
     notifyListeners();
     _sync((s) => s.setAlbumSaved(album, saving));
+  }
+
+  /// 将备份的歌单合并到本机歌单（同 id 已存在时更新曲目，否则插到顶部并落盘）。
+  void upsertLocalPlaylist(SpotifyPlaylist playlist) {
+    final index = _localPlaylists.indexWhere((p) => p.id == playlist.id);
+    if (index >= 0) {
+      _localPlaylists = [..._localPlaylists]..[index] = playlist;
+    } else {
+      _localPlaylists = [playlist, ..._localPlaylists];
+    }
+    _rebuildPlaylists();
+    _persistPlaylists();
+    notifyListeners();
   }
 
   /// 新建歌单（仅保存在本机），返回创建结果。

@@ -80,6 +80,15 @@ class AppPreferences {
   /// 网络环境变动时自动复查出口地区（仅在 [regionCheckEnabled] 开启时有意义）。
   final bool regionCheckOnNetworkChange;
 
+  /// 是否开启歌单备份功能（独立 WebView 多账号备份 + 本机账号自动备份落盘）。
+  final bool backupEnabled;
+
+  /// 开启歌单备份时，是否自动备份本机当前已登录的账号（且本机收藏改动立即落盘）。
+  final bool backupAutoCurrentAccount;
+
+  /// 多账号后台轮询备份间隔（分钟），最短 [minBackupIntervalMinutes]（20 分钟）防限流。
+  final int backupIntervalMinutes;
+
   /// Spotify 没有逐行同步歌词（只有纯文本或完全没有）时，从 LRCLIB 补全。
   final bool lyricsFallback;
 
@@ -128,6 +137,9 @@ class AppPreferences {
     this.proxyUsername = '',
     this.regionCheckEnabled = true,
     this.regionCheckOnNetworkChange = true,
+    this.backupEnabled = false,
+    this.backupAutoCurrentAccount = true,
+    this.backupIntervalMinutes = defaultBackupIntervalMinutes,
     this.lyricsFallback = true,
     this.lyricsSourceOrder = LyricsSource.defaultOrder,
     this.canvasEnabled = true,
@@ -153,6 +165,10 @@ class AppPreferences {
   static const int defaultTaskbarLyricsCustomColor = 0xFF1ED760;
   static const int minTaskbarLyricsFontScale = 80;
   static const int maxTaskbarLyricsFontScale = 130;
+  static const int minBackupIntervalMinutes = 20;
+  static const int maxBackupIntervalMinutes = 1440;
+  static const int defaultBackupIntervalMinutes = 60;
+  static const List<int> backupIntervalOptions = [20, 60, 120, 720, 1440];
 
   AppPreferences copyWith({
     AppLanguage? language,
@@ -174,6 +190,9 @@ class AppPreferences {
     String? proxyUsername,
     bool? regionCheckEnabled,
     bool? regionCheckOnNetworkChange,
+    bool? backupEnabled,
+    bool? backupAutoCurrentAccount,
+    int? backupIntervalMinutes,
     bool? lyricsFallback,
     List<LyricsSource>? lyricsSourceOrder,
     bool? canvasEnabled,
@@ -209,6 +228,15 @@ class AppPreferences {
       regionCheckEnabled: regionCheckEnabled ?? this.regionCheckEnabled,
       regionCheckOnNetworkChange:
           regionCheckOnNetworkChange ?? this.regionCheckOnNetworkChange,
+      backupEnabled: backupEnabled ?? this.backupEnabled,
+      backupAutoCurrentAccount:
+          backupAutoCurrentAccount ?? this.backupAutoCurrentAccount,
+      backupIntervalMinutes: backupIntervalMinutes != null
+          ? backupIntervalMinutes.clamp(
+              minBackupIntervalMinutes,
+              maxBackupIntervalMinutes,
+            )
+          : this.backupIntervalMinutes,
       lyricsFallback: lyricsFallback ?? this.lyricsFallback,
       lyricsSourceOrder: lyricsSourceOrder == null
           ? this.lyricsSourceOrder
@@ -252,6 +280,9 @@ class AppPreferences {
     'proxyUsername': proxyUsername,
     'regionCheckEnabled': regionCheckEnabled,
     'regionCheckOnNetworkChange': regionCheckOnNetworkChange,
+    'backupEnabled': backupEnabled,
+    'backupAutoCurrentAccount': backupAutoCurrentAccount,
+    'backupIntervalMinutes': backupIntervalMinutes,
     'lyricsFallback': lyricsFallback,
     'lyricsSourceOrder': [for (final s in lyricsSourceOrder) s.name],
     'canvasEnabled': canvasEnabled,
@@ -279,6 +310,7 @@ class AppPreferences {
     final customColor = json['taskbarLyricsCustomColor'];
     final opacity = json['taskbarLyricsOpacity'];
     final fontScale = json['taskbarLyricsFontScale'];
+    final backupInterval = json['backupIntervalMinutes'];
     return AppPreferences(
       language: pick(AppLanguage.values, json['language'], d.language),
       lyricsScale: number(
@@ -330,6 +362,17 @@ class AppPreferences {
         json['regionCheckOnNetworkChange'],
         d.regionCheckOnNetworkChange,
       ),
+      backupEnabled: flag(json['backupEnabled'], d.backupEnabled),
+      backupAutoCurrentAccount: flag(
+        json['backupAutoCurrentAccount'],
+        d.backupAutoCurrentAccount,
+      ),
+      backupIntervalMinutes: backupInterval is int
+          ? backupInterval.clamp(
+              minBackupIntervalMinutes,
+              maxBackupIntervalMinutes,
+            )
+          : d.backupIntervalMinutes,
       lyricsFallback: flag(json['lyricsFallback'], d.lyricsFallback),
       lyricsSourceOrder: LyricsSource.parseOrder(json['lyricsSourceOrder']),
       canvasEnabled: flag(json['canvasEnabled'], d.canvasEnabled),
@@ -413,6 +456,11 @@ class AppPreferences {
       other.proxyPort == proxyPort &&
       other.gateway == gateway &&
       other.proxyUsername == proxyUsername &&
+      other.regionCheckEnabled == regionCheckEnabled &&
+      other.regionCheckOnNetworkChange == regionCheckOnNetworkChange &&
+      other.backupEnabled == backupEnabled &&
+      other.backupAutoCurrentAccount == backupAutoCurrentAccount &&
+      other.backupIntervalMinutes == backupIntervalMinutes &&
       other.lyricsFallback == lyricsFallback &&
       listEquals(other.lyricsSourceOrder, lyricsSourceOrder) &&
       other.canvasEnabled == canvasEnabled &&
@@ -445,6 +493,11 @@ class AppPreferences {
     proxyPort,
     gateway,
     proxyUsername,
+    regionCheckEnabled,
+    regionCheckOnNetworkChange,
+    backupEnabled,
+    backupAutoCurrentAccount,
+    backupIntervalMinutes,
     lyricsFallback,
     Object.hashAll(lyricsSourceOrder),
     canvasEnabled,

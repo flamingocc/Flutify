@@ -40,6 +40,7 @@ import 'services/auth/login_region_check.dart';
 import 'services/auth/spotify_auth_service.dart';
 import 'services/auth/session_http_client.dart';
 import 'services/auth/web_token_service.dart';
+import 'services/backup/playlist_backup_service.dart';
 import 'services/eme/eme_audio_engine.dart';
 import 'services/eme/eme_player.dart';
 import 'services/eme/license_client.dart';
@@ -515,6 +516,13 @@ class FlutifyApp extends StatelessWidget {
             });
             return preferences;
           },
+        ),
+        ChangeNotifierProvider(
+          create: (ctx) => PlaylistBackupService(
+            storageService,
+            library: ctx.read<LibraryProvider>(),
+            preferences: ctx.read<PreferencesProvider>(),
+          ),
         ),
         // 在 PreferencesProvider 之后创建：歌词补全 / 双语歌词开关在每次取歌词时读取
         ChangeNotifierProvider(
