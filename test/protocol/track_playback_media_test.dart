@@ -116,6 +116,79 @@ void main() {
       );
     }
 
+    test('地区替换成另一个曲目编号时仍解析该清单', () async {
+      const requested = 'spotify:track:5RIm39lsep2lytUpjGogdE';
+      const linked = 'spotify:track:4COAOWTtlt8WgtA7AoxSeT';
+      final client = MockClient((request) async {
+        expect(request.url.path, endsWith(requested));
+        return http.Response(
+          jsonEncode({
+            'media': {
+              linked: {
+                'item': {
+                  'metadata': {'name': "J'adore Venise", 'duration': 180000},
+                  'manifest': {
+                    'file_ids_mp4': [
+                      {'file_id': 'aa', 'format': 2, 'bitrate': 96000},
+                    ],
+                  },
+                },
+              },
+            },
+          }),
+          200,
+        );
+      });
+      final media = await fetchTrackPlaybackMedia(
+        requested,
+        headers: () async => {},
+        client: client,
+      );
+      expect(media.name, "J'adore Venise");
+      expect(media.durationMs, 180000);
+      expect(media.mp4Files.single.fileIdHex, 'aa');
+    });
+
+    test('原编号已有清单时不改用替换编号', () async {
+      const requested = 'spotify:track:original';
+      final client = MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'media': {
+              'spotify:track:linked': {
+                'item': {
+                  'metadata': {'name': 'linked', 'duration': 1},
+                  'manifest': {
+                    'file_ids_mp4': [
+                      {'file_id': 'bb', 'format': 2, 'bitrate': 96000},
+                    ],
+                  },
+                },
+              },
+              requested: {
+                'item': {
+                  'metadata': {'name': 'original', 'duration': 2},
+                  'manifest': {
+                    'file_ids_mp4': [
+                      {'file_id': 'aa', 'format': 2, 'bitrate': 128000},
+                    ],
+                  },
+                },
+              },
+            },
+          }),
+          200,
+        ),
+      );
+      final media = await fetchTrackPlaybackMedia(
+        requested,
+        headers: () async => {},
+        client: client,
+      );
+      expect(media.name, 'original');
+      expect(media.mp4Files.single.fileIdHex, 'aa');
+    });
+
     test('encoding_id 为数字 / 对象时不抛 TypeError，按字符串保留', () async {
       final media = await parse([
         {'file_id': 'aa', 'format': 10, 'bitrate': 96000, 'encoding_id': 42},

@@ -72,6 +72,27 @@ int _toInt(dynamic v) {
   return 0;
 }
 
+/// 取出可播放的 item。出口地区和曲目原编号不一致时，Spotify 会把同一首歌
+/// 放在另一个 `spotify:track:` 键下，原编号在 `media` 里不出现。
+Map<String, dynamic>? _mediaItem(Object? media, String uri) {
+  if (media is! Map) return null;
+  Map<String, dynamic>? itemOf(Object? entry) {
+    if (entry is! Map) return null;
+    final item = entry['item'];
+    if (item is Map<String, dynamic>) return item;
+    if (item is Map) return Map<String, dynamic>.from(item);
+    return null;
+  }
+
+  final direct = itemOf(media[uri]);
+  if (direct != null) return direct;
+  for (final entry in media.values) {
+    final item = itemOf(entry);
+    if (item != null) return item;
+  }
+  return null;
+}
+
 /// 拉取 `track-playback/v1/media`（桌面端身份），取 CENC MP4 文件列表。
 ///
 /// 这是 Widevine/EME 链路的文件清单来源（与 metadata.proto 的 OGG/MP3 列表不同）。
@@ -98,7 +119,7 @@ Future<TrackPlaybackMedia> fetchTrackPlaybackMedia(
       throw StateError('track-playback 失败：HTTP ${res.statusCode}');
     }
     final body = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
-    final item = body['media']?[uri]?['item'] as Map<String, dynamic>?;
+    final item = _mediaItem(body['media'], uri);
     if (item == null) throw StateError('track-playback 响应缺 item');
     final metadata = item['metadata'] as Map<String, dynamic>? ?? {};
     final manifest = item['manifest'] as Map<String, dynamic>? ?? {};
