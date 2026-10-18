@@ -83,6 +83,7 @@ class AccountProfileService {
       );
       return AccountProfile(
         id: json['id'] as String? ?? '',
+        email: (json['email'] as String? ?? '').trim(),
         displayName:
             (json['display_name'] as String?)?.trim().isNotEmpty == true
             ? json['display_name'] as String
@@ -99,11 +100,13 @@ class AccountProfileService {
 class AccountProfile {
   /// 用户 ID（仅 /v1/me 返回，可作为 username）。
   final String id;
+  final String email;
   final String displayName;
   final String avatarUrl;
 
   const AccountProfile({
     this.id = '',
+    this.email = '',
     required this.displayName,
     required this.avatarUrl,
   });

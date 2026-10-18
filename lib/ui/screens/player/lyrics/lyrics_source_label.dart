@@ -14,6 +14,7 @@ class LyricsSourceLabel extends StatelessWidget {
   final double fontSize;
   final Duration duration;
   final Curve curve;
+  final bool centered;
 
   const LyricsSourceLabel({
     super.key,
@@ -21,6 +22,7 @@ class LyricsSourceLabel extends StatelessWidget {
     required this.fontSize,
     required this.duration,
     required this.curve,
+    this.centered = false,
   });
 
   /// 原文来源文案；[provider] 为 null（尚未解析到时）返回 null。
@@ -51,28 +53,42 @@ class LyricsSourceLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final key = ValueKey<String>(lines.join('\u0000'));
+    final align = centered ? Alignment.topCenter : Alignment.topLeft;
     return Padding(
       padding: const EdgeInsets.only(top: 28),
       child: AnimatedSwitcher(
         duration: duration,
         switchInCurve: curve,
         switchOutCurve: curve,
+        layoutBuilder: (currentChild, previousChildren) => Stack(
+          alignment: align,
+          children: <Widget>[
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        ),
         child: key.value.isEmpty
             ? const SizedBox.shrink(key: ValueKey<String>(''))
-            : Column(
+            : SizedBox(
                 key: key,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (final line in lines)
-                    Text(
-                      line,
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: fontSize,
-                        fontWeight: FontWeight.w600,
+                width: double.infinity,
+                child: Column(
+                  crossAxisAlignment: centered
+                      ? CrossAxisAlignment.center
+                      : CrossAxisAlignment.start,
+                  children: [
+                    for (final line in lines)
+                      Text(
+                        line,
+                        textAlign: centered ? TextAlign.center : TextAlign.start,
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: fontSize,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
       ),
     );

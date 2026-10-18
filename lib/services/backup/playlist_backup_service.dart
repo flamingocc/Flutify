@@ -7,18 +7,28 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/constants/spotify_endpoints.dart';
+import '../../l10n/app_locale.dart';
 import '../../models/app_preferences.dart';
 import '../../models/image.dart';
 import '../../models/playlist.dart';
 import '../../models/track.dart';
 import '../../providers/library_provider.dart';
 import '../../providers/preferences_provider.dart';
-import '../auth/web_token_service.dart';
+import '../auth/client_profile.dart';
+import '../library/desktop_library_source.dart';
+import '../pathfinder/desktop_data_source.dart';
+import '../protocol/access_point.dart';
 import '../storage_service.dart';
 
-/// 从独立 WebView 拿到的 `sp_dc` 拉取到的账号资料与收藏快照。
+/// 从独立 WebView 会话拿到的账号凭据与收藏快照。
 class BackupAccountSnapshot {
+  /// Spotify 唯一用户名 ID（canonical username）。
   final String id;
+
+  /// 账户唯一邮箱（若接口返回则优先作为唯一识别符展示）。
+  final String email;
+
+  /// 账号昵称（可能与其他账号重名，仅作辅助展示，不作主键）。
   final String displayName;
   final String avatarUrl;
   final List<SpotifyTrack> likedTracks;
@@ -27,9 +37,40 @@ class BackupAccountSnapshot {
   const BackupAccountSnapshot({
     required this.id,
     required this.displayName,
+    this.email = '',
     this.avatarUrl = '',
     this.likedTracks = const [],
     this.playlists = const [],
+  });
+
+  /// 账户唯一识别符：优先使用邮箱，无邮箱时使用 Spotify 唯一用户名 ID。
+  String get uniqueId {
+    final mail = email.trim();
+    if (mail.isNotEmpty) return mail;
+    return id.trim();
+  }
+}
+
+/// 独立 WebView 登录捕获到的会话信息（直接使用 WebView 内的页面会话，不手动铸造 token）。
+class BackupSessionCredentials {
+  final String spDc;
+  final String accessToken;
+  final String clientToken;
+  final String userId;
+  final String email;
+  final String displayName;
+  final String avatarUrl;
+  final String profileDir;
+
+  const BackupSessionCredentials({
+    required this.spDc,
+    this.accessToken = '',
+    this.clientToken = '',
+    this.userId = '',
+    this.email = '',
+    this.displayName = '',
+    this.avatarUrl = '',
+    this.profileDir = '',
   });
 }
 
@@ -37,16 +78,31 @@ typedef BackupRemoteFetcher =
     Future<BackupAccountSnapshot> Function(String spDc);
 
 /// 单个已备份账号的落盘快照（含「已收藏的歌曲」与收藏歌单的完整曲目，不做云端预览）。
+///
+/// 主键与展示均采用账户唯一识别符（[uniqueId]：优先邮箱 [email]，其次 Spotify 唯一用户名 [id]），
+/// 即使多个账号昵称（[displayName]）完全相同也不会冲突或覆盖。
 @immutable
 class BackupAccount {
   static const String localAccountFallbackId = 'local_current_account';
 
+  /// Spotify 唯一用户名 ID（canonical username）。
   final String id;
+
+  /// 账户唯一邮箱（如 `user@example.com`）。
+  final String email;
+
+  /// 账户昵称（可重复，不作唯一键）。
   final String displayName;
   final String avatarUrl;
 
   /// 独立 WebView 登录捕获的 `sp_dc`（本机当前账号为空，直接读 [LibraryProvider]）。
   final String spDc;
+
+  /// 独立 WebView 页面自身的会话 `accessToken`（不手动铸造 token）。
+  final String accessToken;
+
+  /// 独立 WebView 页面自身的 `client-token`。
+  final String clientToken;
 
   /// 独立 WebView 资料目录名（多账号隔离 Cookie / Storage）。
   final String profileDir;
@@ -64,8 +120,11 @@ class BackupAccount {
   const BackupAccount({
     required this.id,
     required this.displayName,
+    this.email = '',
     this.avatarUrl = '',
     this.spDc = '',
+    this.accessToken = '',
+    this.clientToken = '',
     this.profileDir = '',
     this.isCurrentAccount = false,
     this.syncToLocal = true,
@@ -74,13 +133,29 @@ class BackupAccount {
     this.playlists = const [],
   });
 
-  String get title => displayName.isNotEmpty ? displayName : id;
+  /// 账户唯一识别符：优先使用邮箱 [email]，无邮箱时使用 Spotify 唯一用户名 [id]。
+  String get uniqueId {
+    final mail = email.trim();
+    if (mail.isNotEmpty) return mail;
+    return id.trim();
+  }
 
-  /// 该账号已备份的「已收藏的歌曲」，包装为可直接用 [PlaylistDetailScreen] 打开的本机落盘歌单。
+  /// 展示标题：以唯一识别符为主（若昵称与唯一识别符不同，则显示「唯一识别符（昵称）」），
+  /// 确保同名账号在界面与同步歌单中绝不混淆。
+  String get title {
+    final uid = uniqueId;
+    final name = displayName.trim();
+    if (uid.isNotEmpty && name.isNotEmpty && name != uid) {
+      return '$uid（$name）';
+    }
+    return uid.isNotEmpty ? uid : name;
+  }
+
+  /// 该账号已备份的「已收藏的歌曲」，以唯一识别符命名与寻址，防止同名账号互相覆盖。
   SpotifyPlaylist get likedSongsPlaylist => SpotifyPlaylist(
-    id: 'backup_${id}_liked',
-    name: '$title · 已收藏的歌曲',
-    uri: 'spotify:playlist:backup_${id}_liked',
+    id: 'backup_${uniqueId}_liked',
+    name: '$uniqueId · 已收藏的歌曲',
+    uri: 'spotify:playlist:backup_${uniqueId}_liked',
     ownerName: title,
     images: const [
       SpotifyImage(url: 'https://misc.scdn.co/liked-songs/liked-songs-640.png'),
@@ -90,22 +165,36 @@ class BackupAccount {
     primaryColor: '#450af5',
   );
 
-  /// 该账号所有已落盘的备份歌单（含「已收藏的歌曲」与各收藏歌单，id 均以 `backup_` 开头以防触发云端预览）。
+  /// 该账号所有已落盘的备份歌单（含「已收藏的歌曲」与各收藏歌单，均带唯一识别符后缀防撞名）。
   List<SpotifyPlaylist> get backedUpPlaylists => [
     if (likedTracks.isNotEmpty) likedSongsPlaylist,
     for (final p in playlists)
       p.copyWith(
-        id: p.id.startsWith('backup_') ? p.id : 'backup_${id}_${p.id}',
-        ownerName: p.ownerName.isNotEmpty ? p.ownerName : title,
+        id: p.id.startsWith('backup_') ? p.id : 'backup_${uniqueId}_${p.id}',
+        ownerName: title,
         totalTracks: p.tracks.length,
       ),
   ];
 
+  /// 判断两个账号记录是否属于同一个 Spotify 账户（按唯一 ID 或唯一邮箱比对，绝不按昵称比对）。
+  bool matchesIdentity({required String otherId, required String otherEmail}) {
+    final aId = id.trim();
+    final bId = otherId.trim();
+    if (aId.isNotEmpty && bId.isNotEmpty && aId == bId) return true;
+    final aMail = email.trim().toLowerCase();
+    final bMail = otherEmail.trim().toLowerCase();
+    if (aMail.isNotEmpty && bMail.isNotEmpty && aMail == bMail) return true;
+    return false;
+  }
+
   BackupAccount copyWith({
     String? id,
+    String? email,
     String? displayName,
     String? avatarUrl,
     String? spDc,
+    String? accessToken,
+    String? clientToken,
     String? profileDir,
     bool? isCurrentAccount,
     bool? syncToLocal,
@@ -115,9 +204,12 @@ class BackupAccount {
   }) {
     return BackupAccount(
       id: id ?? this.id,
+      email: email ?? this.email,
       displayName: displayName ?? this.displayName,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       spDc: spDc ?? this.spDc,
+      accessToken: accessToken ?? this.accessToken,
+      clientToken: clientToken ?? this.clientToken,
       profileDir: profileDir ?? this.profileDir,
       isCurrentAccount: isCurrentAccount ?? this.isCurrentAccount,
       syncToLocal: syncToLocal ?? this.syncToLocal,
@@ -129,9 +221,12 @@ class BackupAccount {
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    'email': email,
     'displayName': displayName,
     'avatarUrl': avatarUrl,
     'spDc': spDc,
+    'accessToken': accessToken,
+    'clientToken': clientToken,
     'profileDir': profileDir,
     'isCurrentAccount': isCurrentAccount,
     'syncToLocal': syncToLocal,
@@ -146,9 +241,12 @@ class BackupAccount {
     final lastBackupRaw = json['lastBackupAt'];
     return BackupAccount(
       id: json['id'] as String? ?? '',
+      email: json['email'] as String? ?? '',
       displayName: json['displayName'] as String? ?? '',
       avatarUrl: json['avatarUrl'] as String? ?? '',
       spDc: json['spDc'] as String? ?? '',
+      accessToken: json['accessToken'] as String? ?? '',
+      clientToken: json['clientToken'] as String? ?? '',
       profileDir: json['profileDir'] as String? ?? '',
       isCurrentAccount: json['isCurrentAccount'] as bool? ?? false,
       syncToLocal: json['syncToLocal'] as bool? ?? true,
@@ -183,7 +281,8 @@ class BackupSyncResult {
   });
 }
 
-/// 用独立账号的 `sp_dc` 铸 Web token 并拉取其资料、已收藏歌曲和歌单（含歌单曲目）。
+/// 使用独立 WebView 会话自带的 `accessToken` / `clientToken` 读取账户唯一识别符（邮箱 / 用户名 ID）
+/// 及已收藏歌曲和歌单，不手动铸造 token。
 class SpDcBackupFetcher {
   static const int _pageSize = 50;
   static const int _maxPages = 6;
@@ -198,89 +297,200 @@ class SpDcBackupFetcher {
   }) : _client = client ?? http.Client(),
        _baseUrl = baseUrl;
 
-  Future<BackupAccountSnapshot> fetch(String spDc) async {
-    final minted = await WebTokenService.mintTokenForSpDc(
-      spDc,
-      client: _client,
-    );
+  Future<BackupAccountSnapshot> fetchWithSession(
+    BackupSessionCredentials session,
+  ) async {
+    final token = session.accessToken.trim();
+    final clientToken = session.clientToken.trim();
+    var id = session.userId.trim();
+    var email = session.email.trim();
+    var displayName = session.displayName.trim();
+    var avatarUrl = session.avatarUrl.trim();
+
     final headers = <String, String>{
-      'Authorization': 'Bearer ${minted.token}',
+      if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+      if (clientToken.isNotEmpty) 'client-token': clientToken,
       'Accept': 'application/json',
+      'Accept-Language': AppLocale.spotifyLanguage,
+      'User-Agent': SpotifyClientProfile.desktop.userAgent,
+      ...SpotifyClientProfile.desktop.headers,
     };
 
-    final me = await _getJson('$_baseUrl/me', headers);
-    final id = (me['id'] as String? ?? '').trim();
-    if (id.isEmpty) {
-      throw StateError('无法读取备份账号 ID');
-    }
-    final displayName = (me['display_name'] as String? ?? id).trim();
-    var avatarUrl = '';
-    final images = me['images'];
-    if (images is List &&
-        images.isNotEmpty &&
-        images.first is Map<String, dynamic>) {
-      avatarUrl =
-          (images.first as Map<String, dynamic>)['url'] as String? ?? '';
-    }
-
-    final likedItems = await _pages(
-      '$_baseUrl/me/tracks?limit=$_pageSize',
-      headers,
-      (json) => json['items'],
-    );
-    final likedTracks = <SpotifyTrack>[
-      for (final item in likedItems)
-        if (item is Map<String, dynamic> &&
-            item['track'] is Map<String, dynamic>)
-          SpotifyTrack.fromJson(
-            item['track'] as Map<String, dynamic>,
-          ).copyWith(addedAt: SpotifyTrack.parseAddedAt(item['added_at'])),
-    ];
-
-    final rawPlaylists = await _pages(
-      '$_baseUrl/me/playlists?limit=$_pageSize',
-      headers,
-      (json) => json['items'],
-    );
-    final playlists = <SpotifyPlaylist>[];
-    for (final item in rawPlaylists.take(_maxPlaylistsWithTracks)) {
-      if (item is! Map<String, dynamic>) continue;
-      var playlist = SpotifyPlaylist.fromJson(item);
-      if (playlist.id.isEmpty) continue;
-      if (playlist.tracks.isEmpty) {
-        try {
-          final trackItems = await _pages(
-            '$_baseUrl/playlists/${Uri.encodeComponent(playlist.id)}/tracks?limit=100',
-            headers,
-            (json) => json['items'],
-            maxPages: 3,
-          );
-          final tracks = <SpotifyTrack>[
-            for (final t in trackItems)
-              if (t is Map<String, dynamic> &&
-                  t['track'] is Map<String, dynamic>)
-                SpotifyTrack.fromJson(
-                  t['track'] as Map<String, dynamic>,
-                ).copyWith(addedAt: SpotifyTrack.parseAddedAt(t['added_at'])),
-          ];
-          playlist = playlist.copyWith(
-            tracks: tracks,
-            totalTracks: tracks.length,
-          );
-        } catch (_) {
-          // 单个歌单曲目拉取失败不中断整体备份
+    // 1. 读取唯一识别符（邮箱 email + 唯一用户名 id）：优先 /v1/me，若被限流则走 APWelcome 取 canonicalUsername
+    if (token.isNotEmpty && (id.isEmpty || email.isEmpty)) {
+      try {
+        final me = await _getJson('$_baseUrl/me', headers);
+        final meId = (me['id'] as String? ?? '').trim();
+        final meEmail = (me['email'] as String? ?? '').trim();
+        final meName = (me['display_name'] as String? ?? '').trim();
+        if (meId.isNotEmpty) id = meId;
+        if (meEmail.isNotEmpty) email = meEmail;
+        if (meName.isNotEmpty && displayName.isEmpty) displayName = meName;
+        final images = me['images'];
+        if (avatarUrl.isEmpty &&
+            images is List &&
+            images.isNotEmpty &&
+            images.first is Map<String, dynamic>) {
+          avatarUrl =
+              (images.first as Map<String, dynamic>)['url'] as String? ?? '';
         }
+      } catch (_) {}
+    }
+
+    if (id.isEmpty && token.isNotEmpty) {
+      try {
+        final ap = await SpotifyAccessPoint.connect(client: _client);
+        try {
+          final welcome = await ap.authenticate(
+            ApCredentials.accessToken(token),
+          );
+          if (welcome.canonicalUsername.isNotEmpty) {
+            id = welcome.canonicalUsername;
+          }
+        } finally {
+          ap.close();
+        }
+      } catch (_) {}
+    }
+
+    if (id.isEmpty && email.isNotEmpty) {
+      id = email;
+    }
+    if (id.isEmpty) {
+      throw StateError('无法读取备份账号的唯一识别符，请确认已在 WebView 中完成登录');
+    }
+    if (displayName.isEmpty) {
+      displayName = email.isNotEmpty ? email : id;
+    }
+
+    // 2. 读取已收藏歌曲与歌单：优先走不受公开 API 429 限流的内部接口（spclient + Pathfinder），
+    //    失败时回退到公开 Web API（/me/tracks 与 /me/playlists）。
+    List<SpotifyTrack> likedTracks = const [];
+    List<SpotifyPlaylist> playlists = const [];
+
+    if (token.isNotEmpty) {
+      final desktopData = DesktopDataSource(
+        _client,
+        headers: () async => headers,
+        language: () => AppLocale.spotifyLanguage,
+      );
+      final desktopLib = DesktopLibrarySource(
+        client: _client,
+        headers: () async => headers,
+        data: desktopData,
+        username: () => id,
+        signedIn: () => true,
+      );
+      try {
+        likedTracks = await desktopLib.fetchLikedTracks();
+      } catch (_) {
+        likedTracks = await _fetchWebApiLikedTracks(headers);
       }
-      playlists.add(playlist);
+      try {
+        final rawPlaylists = await desktopLib.fetchPlaylists();
+        final fullPlaylists = <SpotifyPlaylist>[];
+        for (final p in rawPlaylists.take(_maxPlaylistsWithTracks)) {
+          if (p.tracks.isNotEmpty) {
+            fullPlaylists.add(p);
+            continue;
+          }
+          try {
+            final detail = await desktopData.playlist(p.id);
+            if (detail != null && detail.tracks.isNotEmpty) {
+              fullPlaylists.add(
+                p.copyWith(
+                  tracks: detail.tracks,
+                  totalTracks: detail.tracks.length,
+                ),
+              );
+              continue;
+            }
+          } catch (_) {}
+          fullPlaylists.add(p);
+        }
+        playlists = fullPlaylists;
+      } catch (_) {
+        playlists = await _fetchWebApiPlaylists(headers);
+      }
     }
 
     return BackupAccountSnapshot(
       id: id,
-      displayName: displayName.isNotEmpty ? displayName : id,
+      email: email,
+      displayName: displayName,
       avatarUrl: avatarUrl,
       likedTracks: likedTracks,
       playlists: playlists,
     );
+  }
+
+  Future<BackupAccountSnapshot> fetch(String spDc) =>
+      fetchWithSession(BackupSessionCredentials(spDc: spDc));
+
+  Future<List<SpotifyTrack>> _fetchWebApiLikedTracks(
+    Map<String, String> headers,
+  ) async {
+    try {
+      final likedItems = await _pages(
+        '$_baseUrl/me/tracks?limit=$_pageSize',
+        headers,
+        (json) => json['items'],
+      );
+      return [
+        for (final item in likedItems)
+          if (item is Map<String, dynamic> &&
+              item['track'] is Map<String, dynamic>)
+            SpotifyTrack.fromJson(
+              item['track'] as Map<String, dynamic>,
+            ).copyWith(addedAt: SpotifyTrack.parseAddedAt(item['added_at'])),
+      ];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<List<SpotifyPlaylist>> _fetchWebApiPlaylists(
+    Map<String, String> headers,
+  ) async {
+    try {
+      final rawPlaylists = await _pages(
+        '$_baseUrl/me/playlists?limit=$_pageSize',
+        headers,
+        (json) => json['items'],
+      );
+      final playlists = <SpotifyPlaylist>[];
+      for (final item in rawPlaylists.take(_maxPlaylistsWithTracks)) {
+        if (item is! Map<String, dynamic>) continue;
+        var playlist = SpotifyPlaylist.fromJson(item);
+        if (playlist.id.isEmpty) continue;
+        if (playlist.tracks.isEmpty) {
+          try {
+            final trackItems = await _pages(
+              '$_baseUrl/playlists/${Uri.encodeComponent(playlist.id)}/tracks?limit=100',
+              headers,
+              (json) => json['items'],
+              maxPages: 3,
+            );
+            final tracks = <SpotifyTrack>[
+              for (final t in trackItems)
+                if (t is Map<String, dynamic> &&
+                    t['track'] is Map<String, dynamic>)
+                  SpotifyTrack.fromJson(
+                    t['track'] as Map<String, dynamic>,
+                  ).copyWith(addedAt: SpotifyTrack.parseAddedAt(t['added_at'])),
+            ];
+            playlist = playlist.copyWith(
+              tracks: tracks,
+              totalTracks: tracks.length,
+            );
+          } catch (_) {}
+        }
+        playlists.add(playlist);
+      }
+      return playlists;
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<List<Object?>> _pages(
@@ -319,7 +529,7 @@ class SpDcBackupFetcher {
 }
 
 /// 歌单备份服务：
-/// - 独立 WebView 登录多账号（拿 `sp_dc`）并拉取其「已收藏的歌曲」与歌单落盘；
+/// - 独立 WebView 登录多账号（直接使用 WebView 会话，不手动铸造 token）并按唯一识别符（邮箱 / 用户名 ID）落盘；
 /// - 自动备份本机已登录账号，且**本机收藏更改立即落盘**（不等轮询）；
 /// - 定时轮询间隔用户可设，强制最短 20 分钟（防限流 / 防封禁）；
 /// - 一键将所有启用同步的备份歌单与收藏歌曲同步到当前本机账号。
@@ -333,7 +543,8 @@ class PlaylistBackupService extends ChangeNotifier {
   final StorageService _storage;
   final LibraryProvider? _library;
   final PreferencesProvider? _preferences;
-  final BackupRemoteFetcher _remoteFetcher;
+  final BackupRemoteFetcher? _customRemoteFetcher;
+  final SpDcBackupFetcher _sessionFetcher;
   final File? _diskFile;
   final DateTime Function() _now;
   final bool _enablePeriodicTimer;
@@ -356,12 +567,14 @@ class PlaylistBackupService extends ChangeNotifier {
     LibraryProvider? library,
     PreferencesProvider? preferences,
     BackupRemoteFetcher? remoteFetcher,
+    SpDcBackupFetcher? sessionFetcher,
     File? diskFile,
     DateTime Function()? now,
     bool? enablePeriodicTimer,
   }) : _library = library,
        _preferences = preferences,
-       _remoteFetcher = remoteFetcher ?? SpDcBackupFetcher().fetch,
+       _customRemoteFetcher = remoteFetcher,
+       _sessionFetcher = sessionFetcher ?? SpDcBackupFetcher(),
        _diskFile = diskFile,
        _now = now ?? DateTime.now,
        _enablePeriodicTimer =
@@ -462,15 +675,19 @@ class PlaylistBackupService extends ChangeNotifier {
     _lastLocalPlaylists = library.playlists;
 
     final rawId = _storage.username.trim();
-    final id = rawId.isNotEmpty ? rawId : BackupAccount.localAccountFallbackId;
+    final email = _storage.email.trim();
+    final id = rawId.isNotEmpty
+        ? rawId
+        : (email.isNotEmpty ? email : BackupAccount.localAccountFallbackId);
     final displayName = _storage.displayName.trim().isNotEmpty
         ? _storage.displayName.trim()
-        : (rawId.isNotEmpty ? rawId : '本机账号');
+        : (email.isNotEmpty ? email : (rawId.isNotEmpty ? rawId : '本机账号'));
     final avatarUrl = _storage.avatarUrl;
 
     final existingIndex = _accounts.indexWhere((a) => a.isCurrentAccount);
     final updated = BackupAccount(
       id: id,
+      email: email,
       displayName: displayName,
       avatarUrl: avatarUrl,
       isCurrentAccount: true,
@@ -491,30 +708,51 @@ class PlaylistBackupService extends ChangeNotifier {
     _notify();
   }
 
-  /// 通过独立 WebView 拿到的 [spDc] 添加（或更新）一个外部备份账号，并立即拉取收藏歌单落盘。
-  Future<BackupAccount> addAccountWithSpDc(
-    String spDc, {
-    String profileDir = '',
-  }) async {
-    final cleanSpDc = spDc.trim();
-    if (cleanSpDc.isEmpty) {
-      throw ArgumentError.value(spDc, 'spDc', 'sp_dc 不能为空');
+  Future<BackupAccountSnapshot> _fetchSnapshot(
+    BackupSessionCredentials credentials,
+  ) {
+    final custom = _customRemoteFetcher;
+    if (custom != null) {
+      return custom(credentials.spDc);
+    }
+    return _sessionFetcher.fetchWithSession(credentials);
+  }
+
+  /// 通过独立 WebView 拿到的会话凭据添加（或更新）外部备份账号，按唯一识别符（邮箱 / 唯一 ID）去重并落盘。
+  Future<BackupAccount> addAccountWithSession(
+    BackupSessionCredentials credentials,
+  ) async {
+    final cleanSpDc = credentials.spDc.trim();
+    if (cleanSpDc.isEmpty && credentials.accessToken.trim().isEmpty) {
+      throw ArgumentError('WebView 会话凭据不能为空');
     }
     _isBackingUp = true;
     _lastError = null;
     _notify();
     try {
-      final snapshot = await _remoteFetcher(cleanSpDc);
+      final snapshot = await _fetchSnapshot(credentials);
+      final resolvedEmail = snapshot.email.trim().isNotEmpty
+          ? snapshot.email.trim()
+          : credentials.email.trim();
+      final resolvedId = snapshot.id.trim().isNotEmpty
+          ? snapshot.id.trim()
+          : credentials.userId.trim();
+      // 按唯一识别符（id 或 email）查找已有外部账号，同名（displayName 相同）的不同账号绝不互相覆盖
       final existingIndex = _accounts.indexWhere(
-        (a) => !a.isCurrentAccount && a.id == snapshot.id,
+        (a) =>
+            !a.isCurrentAccount &&
+            a.matchesIdentity(otherId: resolvedId, otherEmail: resolvedEmail),
       );
       final account = BackupAccount(
-        id: snapshot.id,
+        id: resolvedId,
+        email: resolvedEmail,
         displayName: snapshot.displayName,
         avatarUrl: snapshot.avatarUrl,
         spDc: cleanSpDc,
-        profileDir: profileDir.isNotEmpty
-            ? profileDir
+        accessToken: credentials.accessToken.trim(),
+        clientToken: credentials.clientToken.trim(),
+        profileDir: credentials.profileDir.isNotEmpty
+            ? credentials.profileDir
             : (existingIndex >= 0 ? _accounts[existingIndex].profileDir : ''),
         isCurrentAccount: false,
         syncToLocal: existingIndex >= 0
@@ -540,6 +778,29 @@ class PlaylistBackupService extends ChangeNotifier {
     }
   }
 
+  /// 兼容仅传 `spDc` 的添加方式。
+  Future<BackupAccount> addAccountWithSpDc(
+    String spDc, {
+    String accessToken = '',
+    String clientToken = '',
+    String userId = '',
+    String email = '',
+    String displayName = '',
+    String avatarUrl = '',
+    String profileDir = '',
+  }) => addAccountWithSession(
+    BackupSessionCredentials(
+      spDc: spDc,
+      accessToken: accessToken,
+      clientToken: clientToken,
+      userId: userId,
+      email: email,
+      displayName: displayName,
+      avatarUrl: avatarUrl,
+      profileDir: profileDir,
+    ),
+  );
+
   /// 立即执行一次全量备份（本机账号 + 所有已添加的外部账号）并落盘。
   Future<void> backupAllAccounts() async {
     if (_isBackingUp) return;
@@ -552,14 +813,28 @@ class PlaylistBackupService extends ChangeNotifier {
       }
       final updated = <BackupAccount>[];
       for (final account in _accounts) {
-        if (account.isCurrentAccount || account.spDc.isEmpty) {
+        if (account.isCurrentAccount ||
+            (account.spDc.isEmpty && account.accessToken.isEmpty)) {
           updated.add(account);
           continue;
         }
         try {
-          final snapshot = await _remoteFetcher(account.spDc);
+          final snapshot = await _fetchSnapshot(
+            BackupSessionCredentials(
+              spDc: account.spDc,
+              accessToken: account.accessToken,
+              clientToken: account.clientToken,
+              userId: account.id,
+              email: account.email,
+              displayName: account.displayName,
+              avatarUrl: account.avatarUrl,
+              profileDir: account.profileDir,
+            ),
+          );
           updated.add(
             account.copyWith(
+              id: snapshot.id.isNotEmpty ? snapshot.id : account.id,
+              email: snapshot.email.isNotEmpty ? snapshot.email : account.email,
               displayName: snapshot.displayName,
               avatarUrl: snapshot.avatarUrl,
               lastBackupAt: _now(),
@@ -602,21 +877,19 @@ class PlaylistBackupService extends ChangeNotifier {
             addedTracks++;
           }
         }
-        // 2. 外部账号的「已收藏的歌曲」同时作为一张独立备份歌单落到本账号歌单列表，方便直接点播
+        // 2. 外部账号的「已收藏的歌曲」同时作为一张以唯一识别符命名的独立备份歌单落到本账号歌单列表
         if (!account.isCurrentAccount && account.likedTracks.isNotEmpty) {
           library.upsertLocalPlaylist(account.likedSongsPlaylist);
           syncedPlaylists++;
         }
-        // 3. 同步该账号备份的所有收藏歌单（含完整曲目）到本账号
+        // 3. 同步该账号备份的所有收藏歌单（含完整曲目，以唯一识别符作为键前缀与所有者标注）到本账号
         for (final playlist in account.playlists) {
           final synced = playlist.copyWith(
             id: playlist.id.startsWith('local_') ||
                     playlist.id.startsWith('backup_')
                 ? playlist.id
-                : 'backup_${account.id}_${playlist.id}',
-            ownerName: playlist.ownerName.isNotEmpty
-                ? playlist.ownerName
-                : account.title,
+                : 'backup_${account.uniqueId}_${playlist.id}',
+            ownerName: account.title,
             totalTracks: playlist.tracks.length,
           );
           library.upsertLocalPlaylist(synced);
@@ -638,8 +911,10 @@ class PlaylistBackupService extends ChangeNotifier {
     );
   }
 
-  void setAccountSyncEnabled(String accountId, bool syncToLocal) {
-    final index = _accounts.indexWhere((a) => a.id == accountId);
+  void setAccountSyncEnabled(String accountKey, bool syncToLocal) {
+    final index = _accounts.indexWhere(
+      (a) => a.uniqueId == accountKey || a.id == accountKey,
+    );
     if (index < 0) return;
     _accounts = [..._accounts]
       ..[index] = _accounts[index].copyWith(syncToLocal: syncToLocal);
@@ -647,9 +922,11 @@ class PlaylistBackupService extends ChangeNotifier {
     _notify();
   }
 
-  void removeAccount(String accountId) {
+  void removeAccount(String accountKey) {
     final before = _accounts.length;
-    _accounts = _accounts.where((a) => a.id != accountId).toList();
+    _accounts = _accounts
+        .where((a) => a.uniqueId != accountKey && a.id != accountKey)
+        .toList();
     if (_accounts.length == before) return;
     _persistToDisk();
     _notify();

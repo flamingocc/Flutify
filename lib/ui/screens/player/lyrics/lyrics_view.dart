@@ -132,6 +132,10 @@ class _LyricsViewState extends State<LyricsView>
   int _loadRevision = 0;
   List<GlobalKey> _lineKeys = const [];
   final GlobalKey _introKey = GlobalKey();
+  final GlobalKey _sourceKey = GlobalKey();
+
+  GlobalKey _rowKey(int i) =>
+      i < 0 ? _introKey : (i < _lineKeys.length ? _lineKeys[i] : _sourceKey);
 
   /// 每行是否为空行（间奏占位：空串或 ♪）。
   List<bool> _blank = const [];
@@ -167,8 +171,8 @@ class _LyricsViewState extends State<LyricsView>
       AppleMusicMotion.remainingMove(i - _moveFocus, _move.value * 813);
 
   Map<int, double> _captureRows() => {
-    for (var i = -1; i < _lineKeys.length; i++)
-      if (_boxOf(i < 0 ? _introKey : _lineKeys[i]) case final box?)
+    for (var i = -1; i <= _lineKeys.length; i++)
+      if (_boxOf(_rowKey(i)) case final box?)
         i: box.localToGlobal(Offset.zero).dy + _moveOffset(i),
   };
 
@@ -624,8 +628,8 @@ class _LyricsViewState extends State<LyricsView>
       final snapshots = before ?? _captureRows();
       _moveFocus = _focusEntryFor(_currentGap);
       final offsets = <int, double>{};
-      for (var i = -1; i < _lineKeys.length; i++) {
-        final box = _boxOf(i < 0 ? _introKey : _lineKeys[i]);
+      for (var i = -1; i <= _lineKeys.length; i++) {
+        final box = _boxOf(_rowKey(i));
         if (box != null && snapshots.containsKey(i)) {
           offsets[i] =
               snapshots[i]! - (box.localToGlobal(Offset.zero).dy - delta);
@@ -985,7 +989,18 @@ class _LyricsViewState extends State<LyricsView>
                             ),
                           ),
                         ),
-                      _sourceLabel(context, lyrics.provider),
+                      KeyedSubtree(
+                        key: _sourceKey,
+                        child: _movingRow(
+                          lyrics.lines.length,
+                          _sourceLabel(
+                            context,
+                            lyrics.provider,
+                            fontSize: fontSize,
+                            centered: centered,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
               ),
@@ -998,20 +1013,39 @@ class _LyricsViewState extends State<LyricsView>
 
   /// 歌词来源小字：原文与译词同源（如都来自 QQ 音乐）时合并成一段，异源时拆成两段。
   ///
-  /// 它和歌词同在一颗滚动子树里，所以滑动的起点和歌词完全一致；文字本身的变化用与切行
-  /// 滚动相同的时长与曲线做交叉淡入淡出，不再和歌词各自动画。
-  Widget _sourceLabel(BuildContext context, LyricsProvider provider) {
+  /// 它与歌词行一样挂在 [_movingRow] 下并参与 [_captureRows] 位移采样，切行滚动时的
+  /// 起点、曲线与级联延迟和歌词行完全一致。
+  Widget _sourceLabel(
+    BuildContext context,
+    LyricsProvider provider, {
+    required double fontSize,
+    bool centered = false,
+  }) {
     final source = _translationIsCurrent ? _translation.source : null;
     final lines = [
       LyricsSourceLabel.textOf(context, provider),
       if (source != null && source != provider)
         LyricsSourceLabel.translationOf(context, source),
     ].whereType<String>().toList();
-    return LyricsSourceLabel(
-      lines: lines,
-      fontSize: _sourceLabelFontSize,
-      duration: context.motion(_scrollDuration),
-      curve: _scrollCurve,
+    final progress =
+        _translationIsCurrent && (_visibleTranslations?.isNotEmpty ?? false)
+        ? _translationReveal.value.clamp(0.0, 1.0)
+        : 0.0;
+    return Transform.translate(
+      offset: Offset(0, -fontSize * 0.3 * progress),
+      child: LyricsSourceLabel(
+        lines: lines,
+        fontSize: _sourceLabelFontSize,
+        duration: context.motion(
+          widget.appleMusicStyle
+              ? AppleMusicMotion.moveDuration
+              : _scrollDuration,
+        ),
+        curve: widget.appleMusicStyle
+            ? AppleMusicMotion.moveCurve
+            : _scrollCurve,
+        centered: centered,
+      ),
     );
   }
 

@@ -43,6 +43,7 @@ class StorageService {
   ];
   static const String _keyDisplayName = 'sp_display_name';
   static const String _keyAvatarUrl = 'sp_avatar_url';
+  static const String _keyEmail = 'sp_email';
 
   static const String _keyRecentSearches = 'sp_recent_searches';
   static const String _keyVolume = 'sp_volume';
@@ -323,6 +324,9 @@ class StorageService {
   Future<bool> setAvatarUrl(String value) =>
       _prefs.setString(_keyAvatarUrl, value);
 
+  String get email => _prefs.getString(_keyEmail) ?? '';
+  Future<bool> setEmail(String value) => _prefs.setString(_keyEmail, value);
+
   /// 是否已登录：桌面版会话且持有 refresh_token。
   bool get isLoggedIn =>
       _prefs.getString(_keyAuthMethod) == _desktopSession &&
@@ -334,6 +338,7 @@ class StorageService {
       _keyAuthMethod,
       _keyDisplayName,
       _keyAvatarUrl,
+      _keyEmail,
       _keyRefreshToken,
       _keyUsername,
       _keyAccessToken,

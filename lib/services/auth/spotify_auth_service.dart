@@ -320,6 +320,7 @@ class SpotifyAuthService {
     await _storage.writeSession(epoch, [
       if (profile.id.isNotEmpty && _storage.username.isEmpty)
         () => _storage.setUsername(profile.id),
+      if (profile.email.isNotEmpty) () => _storage.setEmail(profile.email),
       () => _storage.setDisplayName(profile.displayName),
       () => _storage.setAvatarUrl(profile.avatarUrl),
     ]);

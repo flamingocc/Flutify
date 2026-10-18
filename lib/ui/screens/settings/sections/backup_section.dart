@@ -42,10 +42,20 @@ class BackupSection extends StatelessWidget {
   ) async {
     final login = loginExternalAccount ?? BackupAccountLoginScreen.open;
     final result = await login(context);
-    if (result == null || result.spDc.isEmpty || !context.mounted) return;
+    if (result == null ||
+        (result.spDc.isEmpty && result.accessToken.isEmpty) ||
+        !context.mounted) {
+      return;
+    }
     try {
       final account = await service.addAccountWithSpDc(
         result.spDc,
+        accessToken: result.accessToken,
+        clientToken: result.clientToken,
+        userId: result.userId,
+        email: result.email,
+        displayName: result.displayName,
+        avatarUrl: result.avatarUrl,
         profileDir: result.profileDir,
       );
       if (!context.mounted) return;
@@ -211,10 +221,10 @@ class BackupSection extends StatelessWidget {
               _BackupAccountTile(
                 account: account,
                 onToggleSync: (v) =>
-                    backupService.setAccountSyncEnabled(account.id, v),
+                    backupService.setAccountSyncEnabled(account.uniqueId, v),
                 onRemove: account.isCurrentAccount
                     ? null
-                    : () => backupService.removeAccount(account.id),
+                    : () => backupService.removeAccount(account.uniqueId),
               ),
             if (playlists.isNotEmpty)
               Padding(

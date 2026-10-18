@@ -121,31 +121,33 @@ void main() {
     );
   });
 
-  test('添加多个外部备份账号落盘，并支持一键同步已备份的歌单到本账号', () async {
+  test('添加多个外部备份账号（即使昵称相同也按唯一识别符邮箱/ID 区分），并支持一键同步', () async {
     final snapshots = <String, BackupAccountSnapshot>{
       'sp_dc_acct_a': const BackupAccountSnapshot(
-        id: 'acct_a',
-        displayName: 'Account A',
+        id: '31aaa',
+        email: 'alice@example.com',
+        displayName: 'Same Nickname',
         likedTracks: [track1, track2],
         playlists: [
           SpotifyPlaylist(
-            id: 'pl_a1',
-            name: 'A Synthwave',
-            ownerName: 'Account A',
+            id: 'pl_1',
+            name: 'Synthwave',
+            ownerName: 'Same Nickname',
             tracks: [track2],
             totalTracks: 1,
           ),
         ],
       ),
       'sp_dc_acct_b': const BackupAccountSnapshot(
-        id: 'acct_b',
-        displayName: 'Account B',
+        id: '31bbb',
+        email: 'bob@example.com',
+        displayName: 'Same Nickname',
         likedTracks: [track3],
         playlists: [
           SpotifyPlaylist(
-            id: 'pl_b1',
-            name: 'B Chill',
-            ownerName: 'Account B',
+            id: 'pl_1',
+            name: 'Chill',
+            ownerName: 'Same Nickname',
             tracks: [track3],
             totalTracks: 1,
           ),
@@ -167,11 +169,19 @@ void main() {
     await service.addAccountWithSpDc('sp_dc_acct_b', profileDir: 'prof_b');
 
     expect(
-      service.accounts.map((a) => a.id),
-      ['local_user', 'acct_a', 'acct_b'],
+      service.accounts.map((a) => a.uniqueId),
+      ['local_user', 'alice@example.com', 'bob@example.com'],
+    );
+    expect(
+      service.accounts.map((a) => a.title),
+      [
+        'local_user（Local User）',
+        'alice@example.com（Same Nickname）',
+        'bob@example.com（Same Nickname）',
+      ],
     );
 
-    // 一键同步到本账号：两个外部账号的收藏歌曲与歌单都合并进本机 LibraryProvider
+    // 一键同步到本账号：两个同名账号各自以唯一邮箱区分，互不覆盖
     final result = await service.syncToCurrentAccount();
     expect(result.addedLikedTracks, 3);
     expect(
@@ -181,13 +191,20 @@ void main() {
     expect(
       library.playlists.map((p) => p.name),
       containsAll([
-        'Account A · 已收藏的歌曲',
-        'A Synthwave',
-        'Account B · 已收藏的歌曲',
-        'B Chill',
+        'alice@example.com · 已收藏的歌曲',
+        'Synthwave',
+        'bob@example.com · 已收藏的歌曲',
+        'Chill',
       ]),
     );
-    // 所有同步落盘的歌单 id 均以 backup_ 开头，详情页直接读本地曲目不走云端预览
+    // 同名账号的同 ID 歌单在合并后拥有各自独立的 backup_<uniqueId>_<id> 主键，两个都保留
+    expect(
+      library.playlists.map((p) => p.id),
+      containsAll([
+        'backup_alice@example.com_pl_1',
+        'backup_bob@example.com_pl_1',
+      ]),
+    );
     for (final p in service.allBackedUpPlaylists) {
       expect(library.isOwnPlaylist(p.id), isTrue);
     }
@@ -203,6 +220,7 @@ void main() {
       diskFile: diskFile,
       remoteFetcher: (spDc) async => const BackupAccountSnapshot(
         id: 'vault_user',
+        email: 'vault@example.com',
         displayName: 'Vault User',
         likedTracks: [track1],
         playlists: [
@@ -258,8 +276,11 @@ void main() {
     await tester.tap(find.text('添加要同步歌单的账号'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Vault User（外部备份账号）'), findsOneWidget);
-    expect(find.text('Vault User · 已收藏的歌曲'), findsOneWidget);
+    expect(
+      find.textContaining('vault@example.com（Vault User）（外部备份账号）'),
+      findsOneWidget,
+    );
+    expect(find.text('vault@example.com · 已收藏的歌曲'), findsOneWidget);
     expect(find.text('Vault Favorites'), findsOneWidget);
 
     // 点击一键同步到本账号
