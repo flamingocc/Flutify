@@ -238,8 +238,8 @@ class NetworkProxy {
       ..idleTimeout = Duration.zero
       ..connectionTimeout = const Duration(seconds: 3);
     const urls = [
-      'https://www.qualcomm.cn/cdn-cgi/trace',
       'https://www.cloudflare.com/cdn-cgi/trace',
+      'https://cloudflare.com/cdn-cgi/trace',
       'https://1.1.1.1/cdn-cgi/trace',
     ];
     try {
