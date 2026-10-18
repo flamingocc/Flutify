@@ -813,30 +813,45 @@ class PlaylistBackupService extends ChangeNotifier {
 
   /// 已落盘的备份歌单汇总：
   /// - 包含每个账号各自的「已点赞的歌曲」（`backup_liked_<uniqueId>`，点击可查看该账号自己的已点赞歌曲）；
-  /// - 包含各账号的收藏歌单（保留真实 Spotify 歌单 ID，可直接查看与播放）。
+  /// - 包含各账号的收藏歌单（不同账号间若有同 ID 或同名重合歌单，自动合并其曲目）。
   List<SpotifyPlaylist> get allBackedUpPlaylists {
-    final seenIds = <String>{};
-    final result = <SpotifyPlaylist>[];
+    final likedPlaylists = <SpotifyPlaylist>[];
+    final seenLikedIds = <String>{};
+    final mergedPlaylists = <SpotifyPlaylist>[];
+
     for (final account in _accounts) {
       if (account.likedTracks.isNotEmpty) {
         final likedPl = account.likedSongsPlaylist;
-        if (seenIds.add(likedPl.id)) {
-          result.add(likedPl);
+        if (seenLikedIds.add(likedPl.id)) {
+          likedPlaylists.add(likedPl);
         }
       }
       for (final p in account.playlists) {
-        if (p.id.isEmpty || !seenIds.add(p.id)) continue;
-        result.add(
-          p.copyWith(
-            ownerName: p.ownerName.isNotEmpty && p.ownerName != 'Spotify'
-                ? p.ownerName
-                : account.title,
-            totalTracks: p.tracks.isNotEmpty ? p.tracks.length : p.totalTracks,
-          ),
+        if (p.id.isEmpty) continue;
+        final normalized = p.copyWith(
+          ownerName: p.ownerName.isNotEmpty && p.ownerName != 'Spotify'
+              ? p.ownerName
+              : account.title,
+          totalTracks: p.tracks.isNotEmpty ? p.tracks.length : p.totalTracks,
         );
+        final existingIdx = mergedPlaylists.indexWhere(
+          (existing) =>
+              existing.id == normalized.id ||
+              (normalized.name.trim().isNotEmpty &&
+                  existing.name.trim().toLowerCase() ==
+                      normalized.name.trim().toLowerCase()),
+        );
+        if (existingIdx >= 0) {
+          mergedPlaylists[existingIdx] = LibraryProvider.mergePlaylists(
+            mergedPlaylists[existingIdx],
+            normalized,
+          );
+        } else {
+          mergedPlaylists.add(normalized);
+        }
       }
     }
-    return result;
+    return [...likedPlaylists, ...mergedPlaylists];
   }
 
   void clearError() {

@@ -133,8 +133,8 @@ void main() {
             id: '37i9dQZF1DXa1',
             name: 'Synthwave',
             ownerName: 'Same Nickname',
-            tracks: [track2],
-            totalTracks: 1,
+            tracks: [track1, track2],
+            totalTracks: 2,
           ),
         ],
       ),
@@ -146,6 +146,13 @@ void main() {
         playlists: [
           SpotifyPlaylist(
             id: '37i9dQZF1DXb1',
+            name: 'Synthwave',
+            ownerName: 'Same Nickname',
+            tracks: [track2, track3],
+            totalTracks: 2,
+          ),
+          SpotifyPlaylist(
+            id: '37i9dQZF1DXb2',
             name: 'Chill',
             ownerName: 'Same Nickname',
             tracks: [track3],
@@ -181,15 +188,22 @@ void main() {
       ],
     );
 
-    // 各账号拥有独立的「已点赞的歌曲」条目，点击可分别查看各账号自己的已点赞歌曲
+    // 各账号拥有独立的「已点赞的歌曲」条目，而两个账号重合的「Synthwave」歌单曲目自动去重合并
     expect(
       service.allBackedUpPlaylists.map((p) => p.id),
       containsAll([
         'backup_liked_alice@example.com',
         'backup_liked_bob@example.com',
         '37i9dQZF1DXa1',
-        '37i9dQZF1DXb1',
+        '37i9dQZF1DXb2',
       ]),
+    );
+    final mergedSynthwave = service.allBackedUpPlaylists.firstWhere(
+      (p) => p.name == 'Synthwave',
+    );
+    expect(
+      mergedSynthwave.tracks.map((t) => t.id),
+      [track1.id, track2.id, track3.id],
     );
 
     // 支持仅选择其中一部分备份歌曲一键合并导入到本账号「已点赞的歌曲」
@@ -204,7 +218,7 @@ void main() {
     expect(partialPlaylistResult.syncedPlaylists, 1);
     expect(library.playlists.map((p) => p.id), ['37i9dQZF1DXa1']);
 
-    // 一键同步全部：已收藏歌曲合并进本账号 Liked Songs，普通歌单保留真实 Spotify 歌单 ID
+    // 一键同步全部：已收藏歌曲合并进本账号 Liked Songs，重合歌单合并去重曲目且不产生重复条目
     final result = await service.syncToCurrentAccount();
     expect(result.addedLikedTracks, 2);
     expect(
@@ -212,8 +226,15 @@ void main() {
       containsAll([track1.id, track2.id, track3.id]),
     );
     expect(
-      library.playlists.map((p) => p.id),
-      containsAll(['37i9dQZF1DXa1', '37i9dQZF1DXb1']),
+      library.playlists.where((p) => p.name == 'Synthwave'),
+      hasLength(1),
+    );
+    expect(
+      library.playlists
+          .firstWhere((p) => p.name == 'Synthwave')
+          .tracks
+          .map((t) => t.id),
+      [track1.id, track2.id, track3.id],
     );
     expect(
       library.playlists.any((p) => p.id.startsWith('backup_liked_')),
