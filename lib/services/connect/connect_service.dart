@@ -196,6 +196,8 @@ class ConnectService {
     int? trackIndex,
     int? seekToMs,
     bool paused = false,
+    bool? repeatingContext,
+    bool? repeatingTrack,
     bool confirm = false,
   }) => _runPlaybackCommand(
     () => _command(deviceId, 'play', {
@@ -223,7 +225,10 @@ class ConnectService {
         'skip_to': {'track_uri': ?trackUri, 'track_index': ?trackIndex},
         'seek_to': ?seekToMs,
         if (paused) 'initially_paused': true,
-        'player_options_override': <String, Object?>{},
+        'player_options_override': <String, Object?>{
+          if (repeatingContext != null) 'repeating_context': repeatingContext,
+          if (repeatingTrack != null) 'repeating_track': repeatingTrack,
+        },
       },
     }),
     (cluster) =>

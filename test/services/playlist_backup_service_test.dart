@@ -121,7 +121,7 @@ void main() {
     );
   });
 
-  test('添加多个外部备份账号（即使昵称相同也按唯一识别符邮箱/ID 区分），并支持一键同步', () async {
+  test('添加多个外部备份账号（即使昵称相同也按唯一识别符邮箱/ID 区分），已收藏歌曲合并且歌单保留真实 ID', () async {
     final snapshots = <String, BackupAccountSnapshot>{
       'sp_dc_acct_a': const BackupAccountSnapshot(
         id: '31aaa',
@@ -130,7 +130,7 @@ void main() {
         likedTracks: [track1, track2],
         playlists: [
           SpotifyPlaylist(
-            id: 'pl_1',
+            id: '37i9dQZF1DXa1',
             name: 'Synthwave',
             ownerName: 'Same Nickname',
             tracks: [track2],
@@ -142,10 +142,10 @@ void main() {
         id: '31bbb',
         email: 'bob@example.com',
         displayName: 'Same Nickname',
-        likedTracks: [track3],
+        likedTracks: [track2, track3],
         playlists: [
           SpotifyPlaylist(
-            id: 'pl_1',
+            id: '37i9dQZF1DXb1',
             name: 'Chill',
             ownerName: 'Same Nickname',
             tracks: [track3],
@@ -181,7 +181,13 @@ void main() {
       ],
     );
 
-    // 一键同步到本账号：两个同名账号各自以唯一邮箱区分，互不覆盖
+    // 各账号的「已收藏的歌曲」去重合并为同一个集合
+    expect(
+      service.mergedLikedTracks.map((t) => t.id),
+      [track1.id, track2.id, track3.id],
+    );
+
+    // 一键同步到本账号：已收藏歌曲合并进本账号 Liked Songs，普通歌单保留真实 Spotify 歌单 ID
     final result = await service.syncToCurrentAccount();
     expect(result.addedLikedTracks, 3);
     expect(
@@ -189,25 +195,14 @@ void main() {
       containsAll([track1.id, track2.id, track3.id]),
     );
     expect(
-      library.playlists.map((p) => p.name),
-      containsAll([
-        'alice@example.com · 已收藏的歌曲',
-        'Synthwave',
-        'bob@example.com · 已收藏的歌曲',
-        'Chill',
-      ]),
-    );
-    // 同名账号的同 ID 歌单在合并后拥有各自独立的 backup_<uniqueId>_<id> 主键，两个都保留
-    expect(
       library.playlists.map((p) => p.id),
-      containsAll([
-        'backup_alice@example.com_pl_1',
-        'backup_bob@example.com_pl_1',
-      ]),
+      containsAll(['37i9dQZF1DXa1', '37i9dQZF1DXb1']),
     );
-    for (final p in service.allBackedUpPlaylists) {
-      expect(library.isOwnPlaylist(p.id), isTrue);
-    }
+    expect(
+      library.playlists.any((p) => p.id.endsWith('_liked')),
+      isFalse,
+      reason: '已收藏歌曲应当合并到 Liked Songs，而不是生成多份假歌单',
+    );
   });
 
   testWidgets('BackupSection 支持开关、添加多账号、展示已落盘歌单与一键同步', (
@@ -280,7 +275,7 @@ void main() {
       find.textContaining('vault@example.com（Vault User）（外部备份账号）'),
       findsOneWidget,
     );
-    expect(find.text('vault@example.com · 已收藏的歌曲'), findsOneWidget);
+    expect(find.text('已收藏的歌曲'), findsOneWidget);
     expect(find.text('Vault Favorites'), findsOneWidget);
 
     // 点击一键同步到本账号

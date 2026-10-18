@@ -77,8 +77,7 @@ class LibraryProvider extends ChangeNotifier {
   /// 最近一次「同步到账号」失败的说明（点赞 / 收藏 / 关注在本地已生效但未写入账号）；UI 可提示并调用 [clearSyncError]。
   String? get syncError => _syncError;
 
-  bool isOwnPlaylist(String id) =>
-      id.startsWith('local_') || id.startsWith('backup_');
+  bool isOwnPlaylist(String id) => id.startsWith('local_');
 
   bool isLiked(String trackId) => _likedIds.contains(trackId);
   bool isPlaylistSaved(String id) => _playlists.any((p) => p.id == id);
@@ -408,8 +407,25 @@ class LibraryProvider extends ChangeNotifier {
     _albums = cacheValid
         ? _storage.readJsonList(StorageService.keyLibraryAlbums).map(SpotifyAlbum.fromJson).toList()
         : const [];
-    _localPlaylists =
-        _storage.readJsonList(StorageService.keyLibraryLocalPlaylists).map(SpotifyPlaylist.fromJson).toList();
+    _localPlaylists = _storage
+        .readJsonList(StorageService.keyLibraryLocalPlaylists)
+        .map(SpotifyPlaylist.fromJson)
+        .where((p) => !p.id.endsWith('_liked') || !p.id.startsWith('backup_'))
+        .map((p) {
+          final stripped = _stripLegacyBackupPrefix(p.id);
+          return stripped == p.id
+              ? p
+              : p.copyWith(id: stripped, uri: 'spotify:playlist:$stripped');
+        })
+        .toList();
     _rebuildPlaylists();
+  }
+
+  static String _stripLegacyBackupPrefix(String id) {
+    if (!id.startsWith('backup_')) return id;
+    final rest = id.substring('backup_'.length);
+    final lastUnderscore = rest.lastIndexOf('_');
+    if (lastUnderscore <= 0 || lastUnderscore + 1 >= rest.length) return id;
+    return rest.substring(lastUnderscore + 1);
   }
 }

@@ -1195,7 +1195,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsDefaultRepeat => 'デフォルトのリピート';
 
   @override
-  String get settingsDefaultRepeatSubtitle => 'アプリ起動時のリピート方式。前回の状態より優先されます';
+  String get settingsDefaultRepeatSubtitle =>
+      'プレイリストやアルバムを切り替えたときに適用されるデフォルトのリピート方式';
 
   @override
   String get settingsRepeatOff => 'リピートなし';

@@ -1241,7 +1241,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsDefaultRepeatSubtitle =>
-      'Repeat mode used when the app starts, replacing the state from the last session';
+      'Repeat mode applied by default when switching playlists or albums';
 
   @override
   String get settingsRepeatOff => 'No repeat';

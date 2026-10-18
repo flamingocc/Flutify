@@ -249,6 +249,26 @@ void main() {
     expect(playback.isPlayingContext('spotify:album:other'), isFalse);
   });
 
+  test('switching playlists applies defaultRepeatMode even after manual repeat change', () async {
+    const otherCtx = PlaybackContext.playlist(
+      'Other',
+      uri: 'spotify:playlist:other',
+    );
+    playback.updateDefaultRepeatMode(SpotifyRepeatMode.context);
+    await playback.playTrack(a, contextQueue: [a, b], context: ctx);
+    expect(playback.repeatMode, SpotifyRepeatMode.context);
+
+    // 在当前歌单内手动切到单曲循环：同歌单内点歌保留单曲循环
+    playback.cycleRepeatMode();
+    expect(playback.repeatMode, SpotifyRepeatMode.track);
+    await playback.playTrack(b, contextQueue: [a, b], context: ctx);
+    expect(playback.repeatMode, SpotifyRepeatMode.track);
+
+    // 切换到新歌单：默认循环方式重新生效
+    await playback.playTrack(c, contextQueue: [c, x], context: otherCtx);
+    expect(playback.repeatMode, SpotifyRepeatMode.context);
+  });
+
   group('播放错误', () {
     testWidgets('offline backs off, replays once, then stops', (tester) async {
       loader.failures[a.id] = const SocketException('Network is unreachable');

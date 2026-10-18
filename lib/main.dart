@@ -522,6 +522,7 @@ class FlutifyApp extends StatelessWidget {
             storageService,
             library: ctx.read<LibraryProvider>(),
             preferences: ctx.read<PreferencesProvider>(),
+            apiService: spotifyApiService,
           ),
         ),
         // 在 PreferencesProvider 之后创建：歌词补全 / 双语歌词开关在每次取歌词时读取
@@ -618,7 +619,12 @@ class FlutifyApp extends StatelessWidget {
                   start,
                 );
                 try {
-                  await connect.playOnReceiver(request);
+                  final repeat = playback.repeatMode;
+                  await connect.playOnReceiver(
+                    request,
+                    repeatingContext: repeat != SpotifyRepeatMode.off,
+                    repeatingTrack: repeat == SpotifyRepeatMode.track,
+                  );
                   return true;
                 } on ConnectException catch (e) {
                   playback.cancelReceiverQueue(queueTicket);

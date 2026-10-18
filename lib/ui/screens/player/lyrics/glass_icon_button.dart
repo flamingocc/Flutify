@@ -27,6 +27,10 @@ class GlassIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = borderRadius ?? BorderRadius.circular(size / 2);
+    final enabled = onPressed != null;
+    final fg = selected == true
+        ? Colors.black87
+        : (enabled ? Colors.white : Colors.white54);
     final button = Semantics(
       toggled: selected,
       child: AnimatedContainer(
@@ -39,11 +43,14 @@ class GlassIconButton extends StatelessWidget {
           borderRadius: radius,
         ),
         child: IconButton(
-          icon: Icon(icon, size: size * 0.45),
-          color: selected == true ? Colors.black87 : Colors.white,
+          icon: Icon(icon, size: size * 0.45, color: fg),
+          color: fg,
+          disabledColor: Colors.white54,
           tooltip: tooltip,
           padding: EdgeInsets.zero,
           style: IconButton.styleFrom(
+            foregroundColor: fg,
+            disabledForegroundColor: Colors.white54,
             shape: RoundedRectangleBorder(borderRadius: radius),
           ),
           isSelected: selected,

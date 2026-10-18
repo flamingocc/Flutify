@@ -356,7 +356,7 @@
   "settingsStartPageLibrary": "ライブラリ",
   "settingsStartPageLast": "前回のページ",
   "settingsDefaultRepeat": "デフォルトのリピート",
-  "settingsDefaultRepeatSubtitle": "アプリ起動時のリピート方式。前回の状態より優先されます",
+  "settingsDefaultRepeatSubtitle": "プレイリストやアルバムを切り替えたときに適用されるデフォルトのリピート方式",
   "settingsRepeatOff": "リピートなし",
   "settingsRepeatList": "リストをリピート",
   "settingsRepeatTrack": "1曲リピート",

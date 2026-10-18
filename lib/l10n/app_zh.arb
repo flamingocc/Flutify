@@ -627,7 +627,7 @@
   "settingsStartPageLibrary": "音乐库",
   "settingsStartPageLast": "上次位置",
   "settingsDefaultRepeat": "默认循环方式",
-  "settingsDefaultRepeatSubtitle": "应用启动时使用的循环方式，覆盖上次退出时的状态",
+  "settingsDefaultRepeatSubtitle": "切换歌单、专辑等播放列表时默认生效的循环方式",
   "settingsRepeatOff": "不循环",
   "settingsRepeatList": "列表循环",
   "settingsRepeatTrack": "单曲循环",

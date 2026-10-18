@@ -140,6 +140,8 @@ class PlayerSceneView extends StatefulWidget {
 class _PlayerSceneViewState extends State<PlayerSceneView> {
   late PlayerView _view = widget.initialView;
   bool _destinationsOpen = false;
+  bool _canvasPlaying = false;
+  bool _hoveringArtwork = false;
 
   /// 控制卡片放大进度（0–1）：放大后卡片里的文字一起加大。
   final ValueNotifier<double> _expandN = ValueNotifier<double>(0);
@@ -291,28 +293,90 @@ class _PlayerSceneViewState extends State<PlayerSceneView> {
         ),
         artworkBuilder: (context, size, progress) => PlayerArtworkHero(
           imageUrl: track.coverUrl,
-          child: TickerMode(
-            enabled: progress == 0 && _view == PlayerView.artwork,
-            child: ClipRRect(
-              borderRadius: context.tokens.radius(28 - 18 * progress),
-              child: SizedBox.square(
-                dimension: size,
-                // Keep one decoded image throughout the flight. Changing the
-                // decode size every frame causes placeholder flashes and churn.
-                child: FittedBox(
-                  child: SwipeableArtwork(
-                    url: track.coverUrl,
-                    size: 400,
-                    child: CanvasArtwork(
-                      track: track,
-                      size: 400,
-                      remote: remote,
-                      borderRadius: BorderRadius.zero,
+          child: ValueListenableBuilder<double>(
+            valueListenable: _expandN,
+            builder: (context, expandVal, _) {
+              final showHoverCanvasBtn =
+                  widget.controlsOnLeft && expandVal > 0.5;
+              final canvasActive = widget.controlsOnLeft
+                  ? _canvasPlaying
+                  : (progress == 0 && _view == PlayerView.artwork);
+              return MouseRegion(
+                onEnter: (_) {
+                  if (!_hoveringArtwork) {
+                    setState(() => _hoveringArtwork = true);
+                  }
+                },
+                onExit: (_) {
+                  if (_hoveringArtwork) {
+                    setState(() => _hoveringArtwork = false);
+                  }
+                },
+                child: ClipRRect(
+                  borderRadius: context.tokens.radius(28 - 18 * progress),
+                  child: SizedBox.square(
+                    dimension: size,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        TickerMode(
+                          enabled: canvasActive,
+                          child: FittedBox(
+                            child: SwipeableArtwork(
+                              url: track.coverUrl,
+                              size: 400,
+                              child: canvasActive
+                                  ? CanvasArtwork(
+                                      track: track,
+                                      size: 400,
+                                      remote: remote,
+                                      borderRadius: BorderRadius.zero,
+                                    )
+                                  : CoverImage(
+                                      url: track.coverUrl,
+                                      size: 400,
+                                      borderRadius: BorderRadius.zero,
+                                    ),
+                            ),
+                          ),
+                        ),
+                        if (showHoverCanvasBtn)
+                          Positioned(
+                            right: 10,
+                            bottom: 10,
+                            child: AnimatedOpacity(
+                              opacity: _hoveringArtwork ? 1.0 : 0.0,
+                              duration: context.motion(
+                                const Duration(milliseconds: 180),
+                              ),
+                              child: IgnorePointer(
+                                ignoring: !_hoveringArtwork,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () {},
+                                  child: GlassIconButton(
+                                    icon: _canvasPlaying
+                                        ? Icons.motion_photos_pause_rounded
+                                        : Icons.motion_photos_on_rounded,
+                                    size: 36,
+                                    selected: _canvasPlaying,
+                                    tooltip: _canvasPlaying
+                                        ? '停止 Canvas'
+                                        : '播放 Canvas',
+                                    onPressed: () => setState(
+                                      () => _canvasPlaying = !_canvasPlaying,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
         lyrics: LyricsView(

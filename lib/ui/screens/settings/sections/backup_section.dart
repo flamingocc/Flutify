@@ -333,7 +333,11 @@ class _BackedUpPlaylistTile extends StatelessWidget {
                   Text(
                     l10n.subtitleJoin(
                       playlist.ownerName,
-                      l10n.songCount(playlist.tracks.length),
+                      l10n.songCount(
+                        playlist.tracks.isNotEmpty
+                            ? playlist.tracks.length
+                            : playlist.totalTracks,
+                      ),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

@@ -410,7 +410,7 @@
   "settingsStartPageLibrary": "Library",
   "settingsStartPageLast": "Last page",
   "settingsDefaultRepeat": "Default repeat mode",
-  "settingsDefaultRepeatSubtitle": "Repeat mode used when the app starts, replacing the state from the last session",
+  "settingsDefaultRepeatSubtitle": "Repeat mode applied by default when switching playlists or albums",
   "settingsRepeatOff": "No repeat",
   "settingsRepeatList": "Repeat list",
   "settingsRepeatTrack": "Repeat track",

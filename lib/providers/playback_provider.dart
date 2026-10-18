@@ -63,15 +63,9 @@ class PlaybackProvider extends ChangeNotifier {
   /// 起播前的网络出口地区门控；为空（测试 / 未注入）时不做任何检测。
   final PlaybackRegionGate? regionGate;
 
-  /// 设置里的「默认循环方式」；null 表示未设置，此时沿用上次会话。
+  /// 设置里的「默认循环方式」（切换歌单等播放列表时默认生效）；null 表示不干预。
   /// 见 [defaultRepeatMode]。
   SpotifyRepeatMode? _defaultRepeatMode;
-
-  /// 本次会话里用户自己改过循环方式（点了播放器上的循环键，或刚在设置里选过）。
-  ///
-  /// 一旦改过，设置里的「默认循环方式」就不该再动它——否则切一次歌单，
-  /// 用户刚选的循环方式就被设置里的默认值冲掉了。
-  bool _repeatTouched = false;
   final Random _random;
 
   /// 远程播放接管（由 main.dart 接上 Spotify Connect）：点歌时先问它，返回 true 表示已交给远程设备播放，
@@ -322,9 +316,21 @@ class PlaybackProvider extends ChangeNotifier {
     if (mode == _defaultRepeatMode) return;
     _defaultRepeatMode = mode;
     if (mode == null) return;
-    // 刚在设置里选的值同时也是用户的选择：切歌单时该留下的是它，不是上一次的设置值。
-    _repeatTouched = true;
     setRepeatMode(mode);
+  }
+
+  void _applyDefaultRepeatMode() {
+    final mode = _defaultRepeatMode;
+    if (mode != null) {
+      setRepeatMode(mode);
+    }
+  }
+
+  bool _isSwitchingContext(PlaybackContext? next) {
+    final target = next ?? PlaybackContext.none;
+    if (_currentTrack == null) return true;
+    if (target.uri.isEmpty || _context.uri.isEmpty) return true;
+    return target.uri != _context.uri;
   }
 
   double get volume => _volume;
@@ -543,9 +549,6 @@ class PlaybackProvider extends ChangeNotifier {
       _order = List.generate(n, (i) => i);
       _orderPos = currentIndex;
     }
-    if (!_repeatTouched && _defaultRepeatMode != null) {
-      setRepeatMode(_defaultRepeatMode!);
-    }
   }
 
   Future<void> _startTrack(
@@ -557,7 +560,6 @@ class PlaybackProvider extends ChangeNotifier {
     final intent = ++_playIntent;
     _isStartingPlayback = !deferLoad;
     if (deferLoad) _isPlaying = false;
-    _repeatTouched = false;
     if (!isRetry) {
       // 新的手动播放尝试（含自动跳过的下一首）：重试预算重新计
       _retryingTrack = false;
@@ -963,6 +965,9 @@ class PlaybackProvider extends ChangeNotifier {
     PlaybackContext? context,
   }) async {
     final intent = ++_playIntent;
+    if (_isSwitchingContext(context)) {
+      _applyDefaultRepeatMode();
+    }
     final remote = remotePlay;
     if (remote != null &&
         await remote(
@@ -972,7 +977,12 @@ class PlaybackProvider extends ChangeNotifier {
         ))
       return;
     if (intent != _playIntent) return;
-    await _playLocal(track, contextQueue: contextQueue, context: context);
+    await _playLocal(
+      track,
+      contextQueue: contextQueue,
+      context: context,
+      applyDefaultRepeat: false,
+    );
   }
 
   /// 在本机播放，不经 [remotePlay]：Connect 播放端收到远程命令时用，避免又转发回远程。
@@ -1001,8 +1011,12 @@ class PlaybackProvider extends ChangeNotifier {
     PlaybackContext? context,
     Duration? startAt,
     bool deferLoad = false,
+    bool applyDefaultRepeat = true,
   }) async {
     _receiverQueue = null;
+    if (applyDefaultRepeat && _isSwitchingContext(context)) {
+      _applyDefaultRepeatMode();
+    }
     var tracks = (contextQueue == null || contextQueue.isEmpty)
         ? [track]
         : List.of(contextQueue);
@@ -1075,11 +1089,21 @@ class PlaybackProvider extends ChangeNotifier {
     required bool paused,
   }) async {
     if (currentAndNext.isEmpty) return;
+    final hadSeed = _receiverQueue != null;
+    final prevContextUri = _context.uri;
     final queue = _receiverOrder(currentAndNext);
+    final switchingContext =
+        hadSeed ||
+        prevContextUri.isEmpty ||
+        queue.context.uri.isEmpty ||
+        queue.context.uri != prevContextUri;
     _contextTracks = queue.tracks;
     _context = queue.context;
     _order = List.generate(_contextTracks.length, (i) => i);
     _orderPos = queue.index;
+    if (switchingContext) {
+      _applyDefaultRepeatMode();
+    }
     await _startTrack(
       currentAndNext.first,
       startAt: startAt,
@@ -1188,13 +1212,19 @@ class PlaybackProvider extends ChangeNotifier {
     PlaybackContext context,
   ) async {
     if (tracks.isEmpty) return;
-    // 远程设备按它自己的随机 / 循环设置从头播放
+    // 切换歌单 / 从头播放上下文时应用设置的默认循环方式
+    _applyDefaultRepeatMode();
     final intent = ++_playIntent;
     final remote = remotePlay;
     if (remote != null && await remote(context, tracks, null)) return;
     if (intent != _playIntent) return;
     final start = _shuffle ? _random.nextInt(tracks.length) : 0;
-    await _playLocal(tracks[start], contextQueue: tracks, context: context);
+    await _playLocal(
+      tracks[start],
+      contextQueue: tracks,
+      context: context,
+      applyDefaultRepeat: false,
+    );
   }
 
   Future<void> togglePlayPause() async {
@@ -1328,7 +1358,6 @@ class PlaybackProvider extends ChangeNotifier {
   }
 
   void cycleRepeatMode() {
-    _repeatTouched = true;
     setRepeatMode(switch (_repeatMode) {
       SpotifyRepeatMode.off => SpotifyRepeatMode.context,
       SpotifyRepeatMode.context => SpotifyRepeatMode.track,

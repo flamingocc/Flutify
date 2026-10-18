@@ -1195,7 +1195,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsDefaultRepeat => '默认循环方式';
 
   @override
-  String get settingsDefaultRepeatSubtitle => '应用启动时使用的循环方式，覆盖上次退出时的状态';
+  String get settingsDefaultRepeatSubtitle => '切换歌单、专辑等播放列表时默认生效的循环方式';
 
   @override
   String get settingsRepeatOff => '不循环';
@@ -3106,7 +3106,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get settingsDefaultRepeat => '預設循環方式';
 
   @override
-  String get settingsDefaultRepeatSubtitle => '應用程式啟動時使用的循環方式，覆蓋上次結束時的狀態';
+  String get settingsDefaultRepeatSubtitle => '切換歌單、專輯等播放列表時預設生效的循環方式';
 
   @override
   String get settingsRepeatOff => '不循環';

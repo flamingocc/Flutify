@@ -103,6 +103,8 @@ class ConnectProvider extends ChangeNotifier {
     ConnectPlayRequest request, {
     int? seekToMs,
     bool paused = false,
+    bool? repeatingContext,
+    bool? repeatingTrack,
   }) => _withTarget(
     receiverDeviceId!,
     () => _service!.play(
@@ -113,6 +115,8 @@ class ConnectProvider extends ChangeNotifier {
       trackIndex: request.trackIndex,
       seekToMs: seekToMs,
       paused: paused,
+      repeatingContext: repeatingContext,
+      repeatingTrack: repeatingTrack,
       confirm: true,
     ),
   );

@@ -106,6 +106,8 @@ class FakeConnectService implements ConnectService {
     int? trackIndex,
     int? seekToMs,
     bool paused = false,
+    bool? repeatingContext,
+    bool? repeatingTrack,
     bool confirm = false,
   }) => _record('play:$deviceId');
 
