@@ -246,14 +246,16 @@ jobs:
       - run: flutter pub get
       - run: flutter test --no-pub
       - run: flutter build linux --release --no-pub
-      - name: Package self-test .deb
+      - name: Package self-test .deb and tarball
         run: |
           mkdir -p dist
           tool/package_linux_deb.sh --label "self-test-${GITHUB_SHA:0:7}" \
             --bundle build/linux/x64/release/bundle --output dist
+          tool/package_linux_tarball.sh --label "self-test-${GITHUB_SHA:0:7}" \
+            --bundle build/linux/x64/release/bundle --output dist
       - uses: actions/upload-artifact@v4
         with:
           name: self-test-linux
-          path: dist/*.deb
+          path: dist/*
           if-no-files-found: error
           retention-days: 7

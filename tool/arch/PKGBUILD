@@ -1,0 +1,44 @@
+# Maintainer: Flutify <noreply@github.com>
+# AUR template for `flutify-bin`; keep in sync with tool/package_linux_deb.sh.
+# The prebuilt release .deb is used as the source because it already ships the
+# launcher, desktop entry and icon. Update _tag, pkgver and the checksum from
+# the release SHA256SUMS.txt on every release, then publish this directory to
+# the AUR (makepkg --printsrcinfo > .SRCINFO).
+pkgname=flutify-bin
+_tag=v0.14-beta
+pkgver=0.0.14
+pkgrel=1
+pkgdesc='A third-party Spotify client (prebuilt Flutter bundle)'
+arch=('x86_64')
+url='https://github.com/is-hp-is-mad/Flutify'
+license=('MIT')
+depends=('gtk3' 'glib2' 'gcc-libs' 'mpv')
+optdepends=('google-chrome: Widevine full-track playback (recommended)'
+            'chromium: alternative Chromium build, needs the Widevine CDM')
+provides=('flutify')
+conflicts=('flutify')
+options=('!strip')
+source_x86_64=("${url}/releases/download/${_tag}/Flutify-${_tag}-linux-x64.deb")
+sha256sums_x86_64=('848d36e91cfd1f141ff66a4243ba9538907e0115b6da5b4dd29a5b58fb895bcf')
+
+prepare() {
+  install -d "$srcdir/deb" "$srcdir/root"
+  bsdtar -xf "$srcdir/Flutify-${_tag}-linux-x64.deb" -C "$srcdir/deb"
+  bsdtar -xf "$srcdir/deb/data.tar.zst" -C "$srcdir/root"
+}
+
+package() {
+  install -d "$pkgdir/opt" "$pkgdir/usr/bin" "$pkgdir/usr/share/applications" \
+    "$pkgdir/usr/share/icons/hicolor/256x256/apps" \
+    "$pkgdir/usr/share/licenses/flutify"
+  cp -a "$srcdir/root/opt/flutify" "$pkgdir/opt/flutify"
+  ln -s /opt/flutify/flutify "$pkgdir/usr/bin/flutify"
+  install -m 0644 \
+    "$srcdir/root/usr/share/applications/com.flutify.music.flutify_app.desktop" \
+    "$pkgdir/usr/share/applications/"
+  install -m 0644 "$srcdir/root/usr/share/icons/hicolor/256x256/apps/flutify.png" \
+    "$pkgdir/usr/share/icons/hicolor/256x256/apps/"
+  install -m 0644 "$srcdir/root/opt/flutify/LICENSE" \
+    "$srcdir/root/opt/flutify/THIRD_PARTY_NOTICES.md" \
+    "$pkgdir/usr/share/licenses/flutify/"
+}

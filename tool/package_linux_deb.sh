@@ -112,7 +112,7 @@ Priority: optional
 Architecture: ${arch}
 Maintainer: Flutify <noreply@github.com>
 Installed-Size: ${installed_size}
-Depends: libc6, libstdc++6, libgtk-3-0 (>= 3.24), libmpv2 | libmpv1 | libmpv-dev, libblkid1, liblzma5, libglib2.0-0
+Depends: libc6, libstdc++6, libgtk-3-0 (>= 3.24), libmpv2 | libmpv1 | libmpv-dev, libglib2.0-0
 Recommends: google-chrome-stable | google-chrome | chromium | chromium-browser, libasound2t64 | libasound2
 Description: A third-party Spotify client (Flutify)
  Flutify is an unofficial Spotify client built with Flutter. It plays full

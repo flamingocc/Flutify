@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/debug_toggles.dart';
+import '../../../../core/perf_flags.dart';
 import '../../../../core/theme/flutify_tokens.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../models/app_preferences.dart';
@@ -881,7 +882,9 @@ class _LyricsViewState extends State<LyricsView>
       child: NotificationListener<ScrollNotification>(
         onNotification: _onScrollNotification,
         child: _EdgeMask(
-          enabled: !DebugToggles.of(context).isOff(DebugToggle.lyricsMask),
+          enabled:
+              !PerfFlags.noLyricsMask &&
+              !DebugToggles.of(context).isOff(DebugToggle.lyricsMask),
           // 上下边缘柔和淡出，歌词像从玻璃下方浮现
           shaderCallback: (rect) => widget.appleMusicStyle
               ? _appleEdgeFade(rect)

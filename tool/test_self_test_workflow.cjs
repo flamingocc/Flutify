@@ -101,6 +101,16 @@ test('Windows self-tests build both native architectures and verify their portab
   assert.match(windows, /if-no-files-found: error/);
 });
 
+test('Linux self-tests package both release formats for other distributions', () => {
+  const linux = job('linux');
+  assert.match(linux, /needs: quality/);
+  assert.match(linux, /flutter build linux --release --no-pub/);
+  assert.match(linux, /tool\/package_linux_deb\.sh/);
+  assert.match(linux, /tool\/package_linux_tarball\.sh/);
+  assert.match(linux, /name: self-test-linux/);
+  assert.match(linux, /if-no-files-found: error/);
+});
+
 test('the separate release pipeline still requires fixed signing secrets and certificate checks', () => {
   const release = read('.github/workflows/build.yml');
   const gradle = read('android/app/build.gradle.kts');
