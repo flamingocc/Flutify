@@ -6,6 +6,8 @@ import 'package:flutify_app/models/playback_context.dart';
 import 'package:flutify_app/models/playback_retry.dart';
 import 'package:flutify_app/models/playback_state.dart';
 import 'package:flutify_app/providers/playback_provider.dart';
+import 'package:flutify_app/services/auth/login_region_check.dart';
+import 'package:flutify_app/services/playback/playback_region_gate.dart';
 import 'package:flutify_app/services/protocol/track_playback_exception.dart';
 import 'package:flutify_app/services/storage_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -267,16 +269,27 @@ void main() {
         expect(loader.loaded.length, i);
         await tester.pump(const Duration(milliseconds: 1));
       }
-      // 预算用光：整首歌重放一次（第 limit+1 次加载），然后再走一轮退避。
+      // 预算用光：整首歌重放一次（第 limit+2 次加载），它接着的那次退避
+      // 也已经开始计时（此时读到的 attempt 是第二轮退避的第 1 拍）。
+      expect(loader.loaded.length, PlaybackRetry.limit + 2);
+      expect(playback.retryNotifier.value?.attempt, 1);
+      expect(playback.retryNotifier.value?.waiting, isTrue);
+      expect(playback.currentTrack?.id, a.id);
+
+      // 第二轮：重放的这一轮退避（1+2+…+limit 秒）。
       for (var i = 1; i <= PlaybackRetry.limit; i++) {
-        await tester.pump(Duration(seconds: i));
+        expect(playback.retryNotifier.value?.attempt, i);
+        expect(playback.retryNotifier.value?.delay, Duration(seconds: i));
+        await tester.pump(Duration(milliseconds: i * 1000 - 1));
+        expect(loader.loaded.length, PlaybackRetry.limit + 1 + i);
+        await tester.pump(const Duration(milliseconds: 1));
       }
       await pending;
 
-      // 两轮后收手：不再自己重放，把预算留给用户点「重试」。
+      // 两轮后收手（每轮 1 次首载 + limit 次退避重试）：不再自己重放，把预算留给用户点「重试」。
       expect(
         loader.loaded.length,
-        1 + PlaybackRetry.limit * 2,
+        (1 + PlaybackRetry.limit) * 2,
         reason: '退避重试一轮后重放，重放一轮后收手，不能越挫越勇',
       );
       expect(playback.currentTrack?.id, a.id);
@@ -293,7 +306,7 @@ void main() {
       await tester.pump(const Duration(minutes: 1));
       expect(
         loader.loaded.length,
-        1 + PlaybackRetry.limit * 2,
+        (1 + PlaybackRetry.limit) * 2,
         reason: '报错之后再等多久也不会自己再来一轮',
       );
     });
@@ -521,6 +534,45 @@ void main() {
 
       expect(loader.loaded, isEmpty, reason: '不应为不可播放曲目发起下载');
       expect(playback.playbackError?.kind, TrackPlaybackFailure.unavailable);
+    });
+
+    test('出口在中国大陆时拦截起播，网络变动切回大陆时暂停正在播放的曲目', () async {
+      LoginRegionCheck.resetForTest();
+      addTearDown(LoginRegionCheck.resetForTest);
+      var code = 'CN';
+      final gate = PlaybackRegionGate(
+        probe: () async => LoginRegion(code),
+      );
+      final gated = PlaybackProvider(
+        audio,
+        await StorageService.init(),
+        audioLoader: loader,
+        regionGate: gate,
+      );
+      addTearDown(gated.dispose);
+
+      await gated.playTrack(a, contextQueue: [a, b], context: ctx);
+      expect(loader.loaded, isEmpty, reason: '出口在 CN 时不加载音频');
+      expect(gated.currentTrack?.id, a.id);
+      expect(gated.playbackError?.kind, TrackPlaybackFailure.regionBlocked);
+      expect(gated.isPlaybackActive, isFalse);
+
+      // 切换节点到海外：点播放正常加载并出声
+      code = 'JP';
+      gate.markNetworkChanged();
+      await gated.togglePlayPause();
+      expect(loader.loaded, [a.id]);
+      expect(gated.playbackError, isNull);
+      expect(gated.isPlaybackActive, isTrue);
+
+      // 播放中途网络变动切回 CN：实时复检并自动暂停
+      code = 'CN';
+      gate.markNetworkChanged();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(gated.playbackError?.kind, TrackPlaybackFailure.regionBlocked);
+      expect(gated.isPlaybackActive, isFalse);
+      expect(audio.isPlaying, isFalse);
     });
   });
 }

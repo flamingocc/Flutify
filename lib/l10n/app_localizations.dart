@@ -1067,6 +1067,60 @@ abstract class AppLocalizations {
   /// **'「{track}」加载失败，请检查网络'**
   String playbackErrorNetwork(String track);
 
+  /// No description provided for @playbackErrorRegionBlocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前网络出口在中国大陆，Spotify 无法播放。请切换节点后重试'**
+  String get playbackErrorRegionBlocked;
+
+  /// No description provided for @regionCheckSectionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络地区检测'**
+  String get regionCheckSectionTitle;
+
+  /// No description provided for @regionCheckSectionSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录与播放前先确认网络出口，检测到中国大陆就停下列表'**
+  String get regionCheckSectionSubtitle;
+
+  /// No description provided for @regionCheckEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用地区检测'**
+  String get regionCheckEnabled;
+
+  /// No description provided for @regionCheckEnabledHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭后不再发起任何检测，也不拦截登录与播放'**
+  String get regionCheckEnabledHint;
+
+  /// No description provided for @regionCheckOnNetworkChange.
+  ///
+  /// In zh, this message translates to:
+  /// **'网络变动时自动复查'**
+  String get regionCheckOnNetworkChange;
+
+  /// No description provided for @regionCheckOnNetworkChangeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换 Wi-Fi / 代理后重新检测一次；关闭则不复查，只在起播时用上一次的结果'**
+  String get regionCheckOnNetworkChangeHint;
+
+  /// No description provided for @regionCheckSkipThisRun.
+  ///
+  /// In zh, this message translates to:
+  /// **'本次打开跳过检测'**
+  String get regionCheckSkipThisRun;
+
+  /// No description provided for @regionCheckSkipThisRunHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'只在本次运行生效，下次启动恢复检测'**
+  String get regionCheckSkipThisRunHint;
+
   /// No description provided for @playbackErrorWidevine.
   ///
   /// In zh, this message translates to:
@@ -3490,6 +3544,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'强制跳过'**
   String get webLoginRegionForceSkip;
+
+  /// No description provided for @webLoginRegionSkipThisRun.
+  ///
+  /// In zh, this message translates to:
+  /// **'本次打开跳过检测'**
+  String get webLoginRegionSkipThisRun;
 
   /// No description provided for @settingsAnimDebugSection.
   ///

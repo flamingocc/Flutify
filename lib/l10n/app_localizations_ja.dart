@@ -532,6 +532,36 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get playbackErrorRegionBlocked =>
+      'ネットワークの出口が中国本土のため、Spotify を再生できません。海外ノードに切り替えて再試行してください';
+
+  @override
+  String get regionCheckSectionTitle => 'ネットワーク地域の確認';
+
+  @override
+  String get regionCheckSectionSubtitle =>
+      'ログインと再生の前にネットワークの出口を確認し、中国本土なら一覧を停止します';
+
+  @override
+  String get regionCheckEnabled => '地域の確認を有効にする';
+
+  @override
+  String get regionCheckEnabledHint => 'オフにすると確認は一切行われず、ログインも再生も停止しません';
+
+  @override
+  String get regionCheckOnNetworkChange => 'ネットワーク変更時に再確認';
+
+  @override
+  String get regionCheckOnNetworkChangeHint =>
+      'Wi-Fi やプロキシの切り替え後に再検出します。オフの場合は起動時の結果を使い続けます';
+
+  @override
+  String get regionCheckSkipThisRun => '次回起動まで確認しない';
+
+  @override
+  String get regionCheckSkipThisRunHint => '今回の起動中だけ有効で、次回起動時に確認を再開します';
+
+  @override
   String playbackErrorWidevine(String track) {
     return '「$track」を復号できません。このデバイスでは Widevine DRM を利用できません';
   }
@@ -1852,6 +1882,9 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get webLoginRegionForceSkip => '確認せず続行';
+
+  @override
+  String get webLoginRegionSkipThisRun => '次回起動まで確認しない';
 
   @override
   String get settingsAnimDebugSection => 'アニメーションのデバッグ（一時）';

@@ -73,6 +73,13 @@ class AppPreferences {
   /// StorageService 的 `sp_proxy_password` 键下，不进这份 JSON。
   final String proxyUsername;
 
+  /// 登录 / 播放前的网络出口地区检测（检测到中国大陆就停下列表）。
+  /// 默认开启；关闭后不再发起任何检测，也不拦截登录和播放。
+  final bool regionCheckEnabled;
+
+  /// 网络环境变动时自动复查出口地区（仅在 [regionCheckEnabled] 开启时有意义）。
+  final bool regionCheckOnNetworkChange;
+
   /// Spotify 没有逐行同步歌词（只有纯文本或完全没有）时，从 LRCLIB 补全。
   final bool lyricsFallback;
 
@@ -119,6 +126,8 @@ class AppPreferences {
     this.proxyPort = 0,
     this.gateway = const SpotifyGateway(),
     this.proxyUsername = '',
+    this.regionCheckEnabled = true,
+    this.regionCheckOnNetworkChange = true,
     this.lyricsFallback = true,
     this.lyricsSourceOrder = LyricsSource.defaultOrder,
     this.canvasEnabled = true,
@@ -163,6 +172,8 @@ class AppPreferences {
     int? proxyPort,
     SpotifyGateway? gateway,
     String? proxyUsername,
+    bool? regionCheckEnabled,
+    bool? regionCheckOnNetworkChange,
     bool? lyricsFallback,
     List<LyricsSource>? lyricsSourceOrder,
     bool? canvasEnabled,
@@ -195,6 +206,9 @@ class AppPreferences {
       proxyPort: proxyPort ?? this.proxyPort,
       gateway: gateway ?? this.gateway,
       proxyUsername: proxyUsername ?? this.proxyUsername,
+      regionCheckEnabled: regionCheckEnabled ?? this.regionCheckEnabled,
+      regionCheckOnNetworkChange:
+          regionCheckOnNetworkChange ?? this.regionCheckOnNetworkChange,
       lyricsFallback: lyricsFallback ?? this.lyricsFallback,
       lyricsSourceOrder: lyricsSourceOrder == null
           ? this.lyricsSourceOrder
@@ -236,6 +250,8 @@ class AppPreferences {
     'proxyPort': proxyPort,
     'gateway': gateway.toJson(),
     'proxyUsername': proxyUsername,
+    'regionCheckEnabled': regionCheckEnabled,
+    'regionCheckOnNetworkChange': regionCheckOnNetworkChange,
     'lyricsFallback': lyricsFallback,
     'lyricsSourceOrder': [for (final s in lyricsSourceOrder) s.name],
     'canvasEnabled': canvasEnabled,
@@ -306,6 +322,14 @@ class AppPreferences {
       proxyUsername: json['proxyUsername'] is String
           ? (json['proxyUsername'] as String).trim()
           : d.proxyUsername,
+      regionCheckEnabled: flag(
+        json['regionCheckEnabled'],
+        d.regionCheckEnabled,
+      ),
+      regionCheckOnNetworkChange: flag(
+        json['regionCheckOnNetworkChange'],
+        d.regionCheckOnNetworkChange,
+      ),
       lyricsFallback: flag(json['lyricsFallback'], d.lyricsFallback),
       lyricsSourceOrder: LyricsSource.parseOrder(json['lyricsSourceOrder']),
       canvasEnabled: flag(json['canvasEnabled'], d.canvasEnabled),

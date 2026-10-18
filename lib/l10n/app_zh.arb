@@ -323,6 +323,15 @@
       }
     }
   },
+  "playbackErrorRegionBlocked": "当前网络出口在中国大陆，Spotify 无法播放。请切换节点后重试",
+  "regionCheckSectionTitle": "网络地区检测",
+  "regionCheckSectionSubtitle": "登录与播放前先确认网络出口，检测到中国大陆就停下列表",
+  "regionCheckEnabled": "启用地区检测",
+  "regionCheckEnabledHint": "关闭后不再发起任何检测，也不拦截登录与播放",
+  "regionCheckOnNetworkChange": "网络变动时自动复查",
+  "regionCheckOnNetworkChangeHint": "切换 Wi-Fi / 代理后重新检测一次；关闭则不复查，只在起播时用上一次的结果",
+  "regionCheckSkipThisRun": "本次打开跳过检测",
+  "regionCheckSkipThisRunHint": "只在本次运行生效，下次启动恢复检测",
   "playbackErrorWidevine": "「{track}」无法解密播放：此设备缺少 Widevine 组件",
   "@playbackErrorWidevine": {
     "placeholders": {
@@ -947,6 +956,7 @@
   "webLoginRegionBlockedBody": "Spotify 在中国大陆不可用，登录大概率会失败或被限制。请开启代理并切换到海外节点，然后重新检测。",
   "webLoginRegionRecheck": "重新检测",
   "webLoginRegionForceSkip": "强制跳过",
+  "webLoginRegionSkipThisRun": "本次打开跳过检测",
   "settingsAnimDebugSection": "动画调试（临时）",
   "settingsAnimDebugFooter": "仅本次运行有效，重启应用后自动恢复。用于定位卡顿：逐项关闭，看关掉哪一项后变流畅。",
   "settingsAnimDebugResetAll": "全部恢复",

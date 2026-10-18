@@ -158,6 +158,9 @@ class EmePlayer {
   /// 已创建的自定义环境（[ensureEnvironment] 完成后可用），供 buildHiddenView 默认使用。
   static WebViewEnvironment? cachedEnvironment;
 
+  /// [ensureEnvironment] 建好环境后的回调（如把同一个环境交给地区检测门控复用）。
+  static void Function(WebViewEnvironment? environment)? environmentReady;
+
   /// Clear the same cookie store used by login and EME, including HttpOnly
   /// cookies. Do not remove CDM data or an external browser's profile.
   static Future<void> clearSessionCookies() async {
@@ -193,6 +196,7 @@ class EmePlayer {
           ),
         );
         cachedEnvironment = env;
+        environmentReady?.call(env);
         return env;
       } catch (e) {
         debugPrint('[eme] 自定义 WebView 环境创建失败，用默认环境: $e');

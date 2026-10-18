@@ -36,6 +36,7 @@ import 'providers/spotify_provider.dart';
 import 'services/audio/audio_engine.dart';
 import 'services/audio/routed_audio_engine.dart';
 import 'services/audio_player_service.dart';
+import 'services/auth/login_region_check.dart';
 import 'services/auth/spotify_auth_service.dart';
 import 'services/auth/session_http_client.dart';
 import 'services/auth/web_token_service.dart';
@@ -66,6 +67,7 @@ import 'services/media_controls/system_media_controls.dart';
 import 'services/network/network_proxy.dart';
 import 'services/network/system_proxy_channel.dart';
 import 'services/network/windows_trust_store.dart';
+import 'services/playback/playback_region_gate.dart';
 import 'services/playback_session_store.dart';
 import 'services/protocol/audio_cache_store.dart';
 import 'services/cache/cache_location.dart';
@@ -319,6 +321,20 @@ Future<Widget> _initializeApp(ValueChanged<String> reportStage) async {
   audioCacheLocation.artworkMaintenance = artworkCache.maintain;
   CachedNetworkImageProvider.defaultCacheManager = artworkCache;
 
+  // 网络出口地区门控：登录页与播放侧共用一套检测结论（见 PlaybackRegionGate）。
+  // 开关每次都现读偏好，设置里改完立即生效；「本次打开跳过」在 LoginRegionCheck 里。
+  final playbackRegionGate = PlaybackRegionGate(
+    enabled: () => AppPreferences.decode(
+      storageService.preferencesJson,
+    ).regionCheckEnabled,
+    recheckOnNetworkChange: () => AppPreferences.decode(
+      storageService.preferencesJson,
+    ).regionCheckOnNetworkChange,
+    skipThisRun: () => LoginRegionCheck.skippedThisRun,
+  );
+  // EME 建好 WebView2 环境后立刻接上：检测用同一个环境，不再另开一个（同目录只允许一个实例）
+  EmePlayer.environmentReady = playbackRegionGate.attachEnvironment;
+
   return FlutifyApp(
     storageService: storageService,
     audioEngine: audioEngine,
@@ -335,6 +351,7 @@ Future<Widget> _initializeApp(ValueChanged<String> reportStage) async {
     lyricsTranslation: lyricsTranslation,
     qqLyricsTranslation: qqLyricsTranslation,
     taskbarLyrics: taskbarLyrics,
+    playbackRegionGate: playbackRegionGate,
     updateService: UpdateService(
       storage: storageService,
       installer: PlatformUpdateInstaller(
@@ -382,6 +399,12 @@ class FlutifyApp extends StatelessWidget {
 
   /// 任务栏歌词（Windows）；已包含在 [mediaControls] 里，这里供界面层绑定设置与歌词来源。
   final TaskbarLyricsControls? taskbarLyrics;
+
+  /// 起播前的网络出口地区门控；为空时不做地区检测（测试默认）。
+  ///
+  /// 由 main 创建、和 PlaybackProvider / AutomaticGatewayBinding 共用同一个实例：
+  /// 检测结果按网络环境缓存，网络变动时由 AutomaticGatewayBinding 作废。
+  final PlaybackRegionGate? playbackRegionGate;
   final UpdateService? updateService;
 
   const FlutifyApp({
@@ -401,6 +424,7 @@ class FlutifyApp extends StatelessWidget {
     this.lyricsTranslation,
     this.qqLyricsTranslation,
     this.taskbarLyrics,
+    this.playbackRegionGate,
     this.updateService,
   });
 
@@ -440,6 +464,7 @@ class FlutifyApp extends StatelessWidget {
               storageService,
               audioLoader: trackAudioLoader,
               sessionStore: playbackSessionStore,
+              regionGate: playbackRegionGate,
               defaultRepeatMode: AppPreferences.decode(
                 storageService.preferencesJson,
               ).defaultRepeatMode,
@@ -623,8 +648,9 @@ class FlutifyApp extends StatelessWidget {
           },
         ),
       ],
-      child: const PlaybackSessionKeeper(
+      child: PlaybackSessionKeeper(
         child: AutomaticGatewayBinding(
+          regionGate: playbackRegionGate,
           child: DynamicAccentSync(child: _ThemedApp()),
         ),
       ),

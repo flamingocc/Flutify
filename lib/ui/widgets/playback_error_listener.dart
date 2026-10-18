@@ -7,6 +7,7 @@ import '../../l10n/l10n.dart';
 import '../../models/playback_retry.dart';
 import '../../providers/playback_provider.dart';
 import '../../services/audio/audio_engine.dart';
+import '../../services/auth/login_region_check.dart';
 import '../../services/eme/fairplay.dart';
 import '../../services/protocol/track_playback_exception.dart';
 import '../screens/auth/login_screen.dart';
@@ -144,6 +145,17 @@ class _PlaybackErrorListenerState extends State<PlaybackErrorListener> {
         ToastTone.error,
         null,
         null,
+      ),
+      // 网络出口在中国大陆：提示换节点，并提供「本次打开跳过检测」继续播放
+      TrackPlaybackFailure.regionBlocked => (
+        l10n.playbackErrorRegionBlocked,
+        Icons.public_off_rounded,
+        ToastTone.error,
+        l10n.regionCheckSkipThisRun,
+        () {
+          LoginRegionCheck.skipForThisRun();
+          unawaited(playback.togglePlayPause());
+        },
       ),
       TrackPlaybackFailure.network => (
         l10n.playbackErrorNetwork(track),

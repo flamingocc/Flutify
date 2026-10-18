@@ -307,6 +307,15 @@
       }
     }
   },
+  "playbackErrorRegionBlocked": "目前網路出口位於中國大陸，Spotify 無法播放。請切換節點後重試",
+  "regionCheckSectionTitle": "網路地區偵測",
+  "regionCheckSectionSubtitle": "登入與播放前先確認網路出口，偵測到中國大陸就停止列表",
+  "regionCheckEnabled": "啟用區域偵測",
+  "regionCheckEnabledHint": "關閉後不再發起任何偵測，也不攔截登入與播放",
+  "regionCheckOnNetworkChange": "網路變動時自動複查",
+  "regionCheckOnNetworkChangeHint": "切換 Wi-Fi / 代理後重新偵測一次；關閉則不複查，只在起播時沿用上一次的結果",
+  "regionCheckSkipThisRun": "本次開啟跳過偵測",
+  "regionCheckSkipThisRunHint": "只在本次執行生效，下次啟動恢復偵測",
   "playbackErrorWidevine": "「{track}」無法解密播放：此裝置缺少 Widevine 組件",
   "@playbackErrorWidevine": {
     "placeholders": {
@@ -930,6 +939,7 @@
   "webLoginRegionBlockedBody": "Spotify 在中國大陸無法使用，登入很可能會失敗或受限。請開啟代理並切換到海外節點，然後重新偵測。",
   "webLoginRegionRecheck": "重新偵測",
   "webLoginRegionForceSkip": "強制跳過",
+  "webLoginRegionSkipThisRun": "本次開啟跳過偵測",
   "settingsAnimDebugSection": "動畫除錯（暫時）",
   "settingsAnimDebugFooter": "僅本次執行有效，重新啟動應用程式後自動恢復。用於定位卡頓：逐項關閉，看關掉哪一項後變流暢。",
   "settingsAnimDebugResetAll": "全部恢復",

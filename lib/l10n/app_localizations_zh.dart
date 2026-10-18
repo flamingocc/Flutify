@@ -541,6 +541,34 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get playbackErrorRegionBlocked => '当前网络出口在中国大陆，Spotify 无法播放。请切换节点后重试';
+
+  @override
+  String get regionCheckSectionTitle => '网络地区检测';
+
+  @override
+  String get regionCheckSectionSubtitle => '登录与播放前先确认网络出口，检测到中国大陆就停下列表';
+
+  @override
+  String get regionCheckEnabled => '启用地区检测';
+
+  @override
+  String get regionCheckEnabledHint => '关闭后不再发起任何检测，也不拦截登录与播放';
+
+  @override
+  String get regionCheckOnNetworkChange => '网络变动时自动复查';
+
+  @override
+  String get regionCheckOnNetworkChangeHint =>
+      '切换 Wi-Fi / 代理后重新检测一次；关闭则不复查，只在起播时用上一次的结果';
+
+  @override
+  String get regionCheckSkipThisRun => '本次打开跳过检测';
+
+  @override
+  String get regionCheckSkipThisRunHint => '只在本次运行生效，下次启动恢复检测';
+
+  @override
   String playbackErrorWidevine(String track) {
     return '「$track」无法解密播放：此设备缺少 Widevine 组件';
   }
@@ -1838,6 +1866,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webLoginRegionForceSkip => '强制跳过';
 
   @override
+  String get webLoginRegionSkipThisRun => '本次打开跳过检测';
+
+  @override
   String get settingsAnimDebugSection => '动画调试（临时）';
 
   @override
@@ -2419,6 +2450,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String playbackErrorNetwork(String track) {
     return '「$track」載入失敗，請檢查網路';
   }
+
+  @override
+  String get playbackErrorRegionBlocked => '目前網路出口位於中國大陸，Spotify 無法播放。請切換節點後重試';
+
+  @override
+  String get regionCheckSectionTitle => '網路地區偵測';
+
+  @override
+  String get regionCheckSectionSubtitle => '登入與播放前先確認網路出口，偵測到中國大陸就停止列表';
+
+  @override
+  String get regionCheckEnabled => '啟用區域偵測';
+
+  @override
+  String get regionCheckEnabledHint => '關閉後不再發起任何偵測，也不攔截登入與播放';
+
+  @override
+  String get regionCheckOnNetworkChange => '網路變動時自動複查';
+
+  @override
+  String get regionCheckOnNetworkChangeHint =>
+      '切換 Wi-Fi / 代理後重新偵測一次；關閉則不複查，只在起播時沿用上一次的結果';
+
+  @override
+  String get regionCheckSkipThisRun => '本次開啟跳過偵測';
+
+  @override
+  String get regionCheckSkipThisRunHint => '只在本次執行生效，下次啟動恢復偵測';
 
   @override
   String playbackErrorWidevine(String track) {
@@ -3715,6 +3774,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get webLoginRegionForceSkip => '強制跳過';
+
+  @override
+  String get webLoginRegionSkipThisRun => '本次開啟跳過偵測';
 
   @override
   String get settingsAnimDebugSection => '動畫除錯（暫時）';

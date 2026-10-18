@@ -12,6 +12,10 @@ enum TrackPlaybackFailure {
 
   /// 网络或服务端临时错误：提示，可重试。
   network,
+
+  /// 当前网络出口在中国大陆：Spotify 在这里不可用，提示用户换节点（见 PlaybackRegionGate）。
+  /// 和 [unavailable] 分开：这不是这首歌的问题，跳到下一首也没用。
+  regionBlocked,
 }
 
 /// 完整曲目加载失败。[message] 为可直接展示给用户的简体中文说明。

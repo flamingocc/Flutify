@@ -13,6 +13,7 @@ import '../models/playback_session.dart';
 import '../models/playback_state.dart';
 import '../models/track.dart';
 import '../services/audio/audio_engine.dart';
+import '../services/playback/playback_region_gate.dart';
 import '../services/playback_session_store.dart';
 import '../services/network/network_failure.dart';
 import '../services/protocol/track_audio_loader.dart';
@@ -58,6 +59,9 @@ class PlaybackProvider extends ChangeNotifier {
 
   /// 上次播放会话的存储；为空时不还原也不保存（测试默认）。
   final PlaybackSessionStore? sessionStore;
+
+  /// 起播前的网络出口地区门控；为空（测试 / 未注入）时不做任何检测。
+  final PlaybackRegionGate? regionGate;
 
   /// 设置里的「默认循环方式」；null 表示未设置，此时沿用上次会话。
   /// 见 [defaultRepeatMode]。
@@ -121,15 +125,7 @@ class PlaybackProvider extends ChangeNotifier {
   }
 
   Future<bool> _waitForRetry(Object error, int generation) async {
-    // 退避只给「链路断了」用：加载器报网络错时 [error] 通常就是它自己的
-    // [TrackPlaybackFailure.network]（见 `_asPlaybackFailure`），cause 里空无一物，
-    // 所以这里还看 kind 本身。缺 DRM / 待 Web 登录也归在 network 一档，但那类
-    // 重试多少次都一样——`isConnectionFailure` 已经把它们挡在外面。
-    final connectionish =
-        isConnectionFailure(error) ||
-        (error is TrackPlaybackException &&
-            error.kind == TrackPlaybackFailure.network);
-    if (!connectionish || _budgetExhausted) {
+    if (!isConnectionFailure(error) || _budgetExhausted) {
       return false;
     }
     final attempt = _takeRetry();
@@ -137,10 +133,17 @@ class PlaybackProvider extends ChangeNotifier {
     final wait = Completer<void>();
     _retryWait = wait;
     retryNotifier.value = PlaybackRetry(attempt, delay);
-    await Future<void>.delayed(delay);
-    if (wait.isCompleted) return false;
-    if (generation != _loadGeneration) return false;
+    final timer = Timer(delay, () {
+      if (!wait.isCompleted) wait.complete();
+    });
+    await wait.future;
+    timer.cancel();
+    // 注意顺序：先认 [_retryWait] 再认代次。用户取消 / 切歌 / 登出时
+    // [_cancelRetry] 已经把 [_retryWait] 清空，这里立刻收手，不再空等到点。
+    if (!identical(_retryWait, wait)) return false;
     _retryWait = null;
+    // 代次对不上说明期间切了歌：这次加载的结果已经作废，不重试。
+    if (generation != _loadGeneration) return false;
     retryNotifier.value = PlaybackRetry(attempt, delay, waiting: false);
     return true;
   }
@@ -263,6 +266,7 @@ class PlaybackProvider extends ChangeNotifier {
     Random? random,
     this.audioLoader,
     this.sessionStore,
+    this.regionGate,
     SpotifyRepeatMode? defaultRepeatMode,
   }) : _audio = audio,
        _random = random ?? Random(),
@@ -275,6 +279,7 @@ class PlaybackProvider extends ChangeNotifier {
     _applyVolume();
     _defaultRepeatMode = defaultRepeatMode;
     if (defaultRepeatMode != null) _repeatMode = defaultRepeatMode;
+    regionGate?.onNetworkChanged = _onRegionNetworkChanged;
     // 有上次会话时还原为「暂停在上次的位置」；否则没有当前曲目，播放器条隐藏，直到用户点播一首歌
     _restoreSession();
   }
@@ -628,6 +633,10 @@ class PlaybackProvider extends ChangeNotifier {
         return;
       }
     }
+    if (regionGate != null) {
+      final blocked = await _blockOnRegion(track, generation: generation);
+      if (blocked || generation != _loadGeneration) return;
+    }
     while (generation == _loadGeneration) {
       try {
         final loader = audioLoader;
@@ -748,8 +757,7 @@ class PlaybackProvider extends ChangeNotifier {
   /// 和 [TrackPlaybackFailure.kind] 分开看：后者由状态码推导，会把传输层的抖动
   /// 也归进 `network`，而那未必代表这首歌有问题。
   static bool _isTransientFailure(TrackPlaybackException failure) =>
-      isConnectionFailure(failure) ||
-      failure.kind == TrackPlaybackFailure.network;
+      isConnectionFailure(failure);
 
   /// 处理加载失败：暴露错误状态；「不可播放」类自动跳到下一首（有上限）。
   ///
@@ -757,9 +765,8 @@ class PlaybackProvider extends ChangeNotifier {
   /// - 开启 [pauseAfterFailures]（默认）：连续第 [failureLimit] 首仍不可播放时停下，标记 autoPaused；
   /// - 始终：跳过次数不超过一轮上下文长度，避免整个歌单都不可播时死循环。
   ///
-  /// 网络类失败不算「这首歌播不了」，不参与这两层上限：后台切歌时对端半路断流很平常，
-  /// 用户既没看见播放器条也没法点重试，把它当不可播就会连着停在几首上。
-  /// 反正这一首已经放不出来了，能接着放下一首就接着放。
+  /// 网络类失败不算「这首歌播不了」，不参与这两层上限：先自动重放一次当前曲目，
+  /// 重放仍失败则停在当前曲目并提示用户点「重试」。
   Future<void> _handleLoadFailure(
     SpotifyTrack track,
     TrackPlaybackException failure,
@@ -779,7 +786,7 @@ class PlaybackProvider extends ChangeNotifier {
         !_retryingTrack;
     final canSkip =
         !hitLimit &&
-        (unsuitable || _isTransientFailure(failure)) &&
+        unsuitable &&
         _consecutiveSkips < max(max(_order.length, _userQueue.length + 1), 1) &&
         (_userQueue.isNotEmpty ||
             _orderPos + 1 < _order.length ||
@@ -805,6 +812,7 @@ class PlaybackProvider extends ChangeNotifier {
     if (!canSkip) {
       // 重放也没成功：没打算在这首歌上再自动重来，把「这一下没加载上」的预算
       // 留给用户下一次点「重试」（那是一次新的手动播放尝试，见 [_startTrack]）。
+      _retriesUsed = 0;
       _transientRetried = false;
       _isStartingPlayback = false;
       _isPlaying = false;
@@ -812,12 +820,6 @@ class PlaybackProvider extends ChangeNotifier {
     }
     _setLoading(false);
     if (canSkip) {
-      // 后台切歌时链路断了：不弹提示，重放一次这首（同一首重来一次往往就成了）；
-      // 不可播放类才换下一首。
-      //
-      // 网络类失败在这里不再重放：能走到这一步说明
-      // [_retryTrack] 的重放也失败了（[_transientRetried] 已经成立），
-      // 再重放就是死循环。只跳过，不重放。
       _consecutiveSkips++;
       await nextTrack(isAutoSkip: true);
     } else {
@@ -1015,6 +1017,56 @@ class PlaybackProvider extends ChangeNotifier {
     await _startTrack(track, startAt: startAt, deferLoad: deferLoad);
   }
 
+  void _onRegionNetworkChanged() {
+    final track = _currentTrack;
+    if (track == null || !isPlaybackActive) return;
+    unawaited(_recheckActivePlaybackRegion(track));
+  }
+
+  Future<void> _recheckActivePlaybackRegion(SpotifyTrack track) async {
+    final blocked = await _blockOnRegion(track);
+    if (!blocked) return;
+    if (_currentTrack?.id == track.id) {
+      await pause();
+    }
+  }
+
+  /// 起播前及网络变动时的出口地区门控：检测到中国大陆就停在这首歌上并提示，不加载任何音频。
+  ///
+  /// 只拦本机播放，不拦后台预取（预取失败本来就不出声）。
+  Future<bool> _blockOnRegion(SpotifyTrack track, {int? generation}) async {
+    final gate = regionGate;
+    if (gate == null || track.id.isEmpty) return false;
+    PlaybackRegionBlock? block;
+    try {
+      block = await gate.ensureAllowed();
+    } catch (_) {
+      // 检测本身出问题按「未知」处理，不因为探测失败就不让听歌
+      return false;
+    }
+    if (block == null) return false;
+    if (generation != null && generation != _loadGeneration) return true;
+    _playbackError = PlaybackError(
+      serial: ++_errorSerial,
+      track: track,
+      exception: TrackPlaybackException(
+        TrackPlaybackFailure.regionBlocked,
+        '当前网络出口在中国大陆，Spotify 无法播放',
+      ),
+      skipped: false,
+      autoPaused: false,
+      consecutiveFailures: 1,
+      retryable: false,
+    );
+    _errorController.add(_playbackError!);
+    _isStartingPlayback = false;
+    _isPlaying = false;
+    _isBuffering = false;
+    _setLoading(false);
+    notifyListeners();
+    return true;
+  }
+
   /// 接收服务端的实际顺序，不再在本机洗牌。匹配的完整上下文只补充
   /// 未下发的尾部；服务端改序或启用随机时绝不拼接原歌单顺序。
   Future<void> playReceiverQueue(
@@ -1157,6 +1209,9 @@ class PlaybackProvider extends ChangeNotifier {
       await pause();
     } else if (_loadedTrackId != track.id) {
       // 还没加载过 / 上次加载失败（重试）
+      _retryingTrack = false;
+      _retriesUsed = 0;
+      _transientRetried = false;
       _playbackError = null;
       await _playAudio(track);
     } else {
@@ -1530,6 +1585,9 @@ class PlaybackProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (identical(regionGate?.onNetworkChanged, _onRegionNetworkChanged)) {
+      regionGate?.onNetworkChanged = null;
+    }
     ++_loadGeneration;
     _currentAudio = null;
     _cancelRetry();

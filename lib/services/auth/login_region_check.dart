@@ -44,6 +44,25 @@ typedef LoginRegionProbe = Future<LoginRegion> Function();
 class LoginRegionCheck {
   LoginRegionCheck._();
 
+  /// 本次打开是否已被用户要求跳过检测（仅内存态，重启即恢复检测）。
+  ///
+  /// 登录页与播放侧共用这一位：用户在任意一处选了「本次打开跳过」，两边都不再检测——
+  /// 同一次打开里两个入口给出不同结论只会让人更迷糊。
+  static bool _skippedThisRun = false;
+
+  static bool get skippedThisRun => _skippedThisRun;
+
+  /// 记下「本次打开不再检测」。返回 false 表示本次打开已经跳过过了。
+  static bool skipForThisRun() {
+    final first = !_skippedThisRun;
+    _skippedThisRun = true;
+    return first;
+  }
+
+  /// 测试用：恢复「尚未跳过」的初始状态。
+  @visibleForTesting
+  static void resetForTest() => _skippedThisRun = false;
+
   /// 依次尝试，取第一个成功读到国家代码的结果。
   static const List<String> endpoints = [
     'https://www.cloudflare.com/cdn-cgi/trace',
@@ -64,6 +83,8 @@ class LoginRegionCheck {
     if (FlutifyPlatform.isTest || !FlutifyPlatform.supportsInAppWebView) {
       return const LoginRegion.unknown();
     }
+    // 用户已经选了「本次打开跳过」：不再费一次无头 WebView 的开销
+    if (_skippedThisRun) return const LoginRegion.unknown();
     for (final url in urls) {
       final code = await _probe(url, environment, perEndpoint);
       if (code != null) return LoginRegion(code);

@@ -315,12 +315,25 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
     await _flow.poll();
   }
 
-  /// 「强制跳过」：不再检测，直接创建登录 WebView。
+  /// 「强制跳过」：本次打开都不再检测，直接创建登录 WebView。
+  ///
+  /// 和「本次打开跳过检测」一样只在内存里生效：下次启动重新检测。
   void _skipRegionCheck() {
     if (!mounted || _done) return;
+    LoginRegionCheck.skipForThisRun();
     _regionSkipped = true;
     _enterWebView();
     unawaited(_flow.poll());
+  }
+
+  /// 「本次打开跳过检测」：在检测阶段让用户不等结果直接进去；之后的复查也一起放过。
+  Future<void> _skipRegionForThisRun() async {
+    if (!mounted || _done) return;
+    LoginRegionCheck.skipForThisRun();
+    _regionSkipped = true;
+    _regionChecking = false;
+    if (!_webViewReady && !_preparingLogin) unawaited(_prepareLoginPage());
+    if (mounted && !_done) setState(() {});
   }
 
   /// AuthProvider 状态 → 流程：已登录即桌面授权完成；失败带错误信息回流程。
@@ -471,7 +484,11 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
                     onLoadStop: (_, url) => _onNav(url?.toString()),
                   ),
                 if (showOverlay)
-                  _ProgressOverlay(stage: stage, checkingRegion: _regionChecking),
+                  _ProgressOverlay(
+                    stage: stage,
+                    checkingRegion: _regionChecking,
+                    onSkipRegion: _skipRegionForThisRun,
+                  ),
                 if (_regionBlocked)
                   _RegionBlockedView(
                     code: _region?.code ?? '',
@@ -501,7 +518,14 @@ class _ProgressOverlay extends StatelessWidget {
 
   /// 正在检测出口地区（登录页加载之前）。
   final bool checkingRegion;
-  const _ProgressOverlay({required this.stage, this.checkingRegion = false});
+
+  /// 检测期间放弃等待：本次打开不再检测，直接加载登录页。
+  final VoidCallback? onSkipRegion;
+  const _ProgressOverlay({
+    required this.stage,
+    this.checkingRegion = false,
+    this.onSkipRegion,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -510,10 +534,10 @@ class _ProgressOverlay extends StatelessWidget {
     final text = checkingRegion
         ? context.l10n.webLoginRegionChecking
         : switch (stage) {
-      WebLoginStage.preparing => context.l10n.webLoginPreparing,
-      WebLoginStage.desktopAuthorize => context.l10n.webLoginAuthorizing,
-      _ => context.l10n.webLoginFinishing,
-    };
+            WebLoginStage.preparing => context.l10n.webLoginPreparing,
+            WebLoginStage.desktopAuthorize => context.l10n.webLoginAuthorizing,
+            _ => context.l10n.webLoginFinishing,
+          };
     return Positioned.fill(
       child: ColoredBox(
         color: colorScheme.surface,
@@ -537,10 +561,18 @@ class _ProgressOverlay extends StatelessWidget {
               checkingRegion
                   ? context.l10n.webLoginRegionCheckingHint
                   : context.l10n.webLoginBackgroundHint,
+              textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
+            if (checkingRegion && onSkipRegion != null) ...[
+              const SizedBox(height: 20),
+              TextButton(
+                onPressed: onSkipRegion,
+                child: Text(context.l10n.webLoginRegionSkipThisRun),
+              ),
+            ],
           ],
         ),
       ),

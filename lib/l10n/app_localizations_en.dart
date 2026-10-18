@@ -555,6 +555,38 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get playbackErrorRegionBlocked =>
+      'Your network exits in mainland China, where Spotify doesn\'t work. Switch to an overseas node and try again';
+
+  @override
+  String get regionCheckSectionTitle => 'Network region check';
+
+  @override
+  String get regionCheckSectionSubtitle =>
+      'Confirm where your network exits before signing in or playing; mainland China stops the list';
+
+  @override
+  String get regionCheckEnabled => 'Enable region check';
+
+  @override
+  String get regionCheckEnabledHint =>
+      'When off, no check runs at all and neither sign-in nor playback is blocked';
+
+  @override
+  String get regionCheckOnNetworkChange => 'Re-check when the network changes';
+
+  @override
+  String get regionCheckOnNetworkChangeHint =>
+      'Detect again after switching Wi-Fi or proxy; when off, the last result is reused until launch';
+
+  @override
+  String get regionCheckSkipThisRun => 'Skip checks until next launch';
+
+  @override
+  String get regionCheckSkipThisRunHint =>
+      'Applies to this run only; detection resumes on the next launch';
+
+  @override
   String playbackErrorWidevine(String track) {
     return 'Can\'t decrypt \"$track\": Widevine DRM is unavailable on this device';
   }
@@ -1934,6 +1966,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webLoginRegionForceSkip => 'Skip anyway';
+
+  @override
+  String get webLoginRegionSkipThisRun => 'Skip checks until next launch';
 
   @override
   String get settingsAnimDebugSection => 'Animation debugging (temporary)';
