@@ -2294,7 +2294,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsDefaultRepeatSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'应用启动时使用的循环方式，覆盖上次退出时的状态'**
+  /// **'切换歌单、专辑等播放列表时默认生效的循环方式'**
   String get settingsDefaultRepeatSubtitle;
 
   /// No description provided for @settingsRepeatOff.

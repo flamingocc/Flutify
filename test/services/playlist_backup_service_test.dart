@@ -181,15 +181,32 @@ void main() {
       ],
     );
 
-    // 各账号的「已收藏的歌曲」去重合并为同一个集合
+    // 各账号拥有独立的「已点赞的歌曲」条目，点击可分别查看各账号自己的已点赞歌曲
     expect(
-      service.mergedLikedTracks.map((t) => t.id),
-      [track1.id, track2.id, track3.id],
+      service.allBackedUpPlaylists.map((p) => p.id),
+      containsAll([
+        'backup_liked_alice@example.com',
+        'backup_liked_bob@example.com',
+        '37i9dQZF1DXa1',
+        '37i9dQZF1DXb1',
+      ]),
     );
 
-    // 一键同步到本账号：已收藏歌曲合并进本账号 Liked Songs，普通歌单保留真实 Spotify 歌单 ID
+    // 支持仅选择其中一部分备份歌曲一键合并导入到本账号「已点赞的歌曲」
+    final addedPartial = await service.importSelectedTracksToLiked([track1]);
+    expect(addedPartial, 1);
+    expect(library.likedTracks.map((t) => t.id), [track1.id]);
+
+    // 支持仅选择其中一部分备份歌单一键导入到本账号
+    final partialPlaylistResult = await service.importSelectedPlaylists([
+      service.allBackedUpPlaylists.firstWhere((p) => p.id == '37i9dQZF1DXa1'),
+    ]);
+    expect(partialPlaylistResult.syncedPlaylists, 1);
+    expect(library.playlists.map((p) => p.id), ['37i9dQZF1DXa1']);
+
+    // 一键同步全部：已收藏歌曲合并进本账号 Liked Songs，普通歌单保留真实 Spotify 歌单 ID
     final result = await service.syncToCurrentAccount();
-    expect(result.addedLikedTracks, 3);
+    expect(result.addedLikedTracks, 2);
     expect(
       library.likedTracks.map((t) => t.id),
       containsAll([track1.id, track2.id, track3.id]),
@@ -199,13 +216,13 @@ void main() {
       containsAll(['37i9dQZF1DXa1', '37i9dQZF1DXb1']),
     );
     expect(
-      library.playlists.any((p) => p.id.endsWith('_liked')),
+      library.playlists.any((p) => p.id.startsWith('backup_liked_')),
       isFalse,
-      reason: '已收藏歌曲应当合并到 Liked Songs，而不是生成多份假歌单',
+      reason: '已点赞歌曲应当合并到 Liked Songs，而不是生成多份假歌单',
     );
   });
 
-  testWidgets('BackupSection 支持开关、添加多账号、展示已落盘歌单与一键同步', (
+  testWidgets('BackupSection 支持开关、添加多账号、展示各账号已点赞歌曲与部分勾选导入', (
     tester,
   ) async {
     final service = PlaylistBackupService(
@@ -275,7 +292,7 @@ void main() {
       find.textContaining('vault@example.com（Vault User）（外部备份账号）'),
       findsOneWidget,
     );
-    expect(find.text('已收藏的歌曲'), findsOneWidget);
+    expect(find.text('vault@example.com（Vault User） · 已点赞的歌曲'), findsOneWidget);
     expect(find.text('Vault Favorites'), findsOneWidget);
 
     // 点击一键同步到本账号

@@ -5,6 +5,8 @@ import '../../../../core/theme/flutify_tokens.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../../models/app_preferences.dart';
 import '../../../../models/playlist.dart';
+import '../../../../models/track.dart';
+import '../../../../providers/library_provider.dart';
 import '../../../../providers/preferences_provider.dart';
 import '../../../../services/backup/playlist_backup_service.dart';
 import '../../../navigation/app_routes.dart';
@@ -14,18 +16,22 @@ import '../../auth/backup_account_login_screen.dart';
 import '../widgets/settings_section.dart';
 
 /// 设置页「歌单备份」分组：
-/// - 开关打开后允许：
-///   1) 自动备份本机已登录账号（本机收藏更改立即落盘）；
-///   2) 独立 WebView 资料登录 `open.spotify.com` 添加多个要同步歌单的账号；
-///   3) 一键同步已备份的歌单与已收藏歌曲到本账号；
-///   4) 设置备份频率（最短 20min，提供 20min / 1h / 2h / 12h / 1d 防限流）；
-///   5) 列表样式浏览已落盘的备份歌单（点击直接进原生歌单详情页，不做云端预览）。
-class BackupSection extends StatelessWidget {
+/// - 显示各个备份账号各自的「已点赞的歌曲」（点击直接查看该账号的已点赞歌曲，不会跳去本机账号）；
+/// - 无论是备份的歌单还是歌曲，均支持勾选其中一部分一键导入到当前账号。
+class BackupSection extends StatefulWidget {
   const BackupSection({super.key, this.loginExternalAccount});
 
   /// 可选注入外部账号登录回调（测试用；默认打开独立 WebView 登录页 [BackupAccountLoginScreen]）。
   final Future<BackupLoginResult?> Function(BuildContext context)?
       loginExternalAccount;
+
+  @override
+  State<BackupSection> createState() => _BackupSectionState();
+}
+
+class _BackupSectionState extends State<BackupSection> {
+  final Set<String> _selectedPlaylistIds = {};
+  bool _initializedSelection = false;
 
   static String _intervalLabel(int minutes) => switch (minutes) {
     20 => '20 分钟',
@@ -40,7 +46,7 @@ class BackupSection extends StatelessWidget {
     BuildContext context,
     PlaylistBackupService service,
   ) async {
-    final login = loginExternalAccount ?? BackupAccountLoginScreen.open;
+    final login = widget.loginExternalAccount ?? BackupAccountLoginScreen.open;
     final result = await login(context);
     if (result == null ||
         (result.spDc.isEmpty && result.accessToken.isEmpty) ||
@@ -59,9 +65,14 @@ class BackupSection extends StatelessWidget {
         profileDir: result.profileDir,
       );
       if (!context.mounted) return;
+      setState(() {
+        for (final p in account.backedUpPlaylists) {
+          _selectedPlaylistIds.add(p.id);
+        }
+      });
       AppToast.show(
         context,
-        '已备份账号「${account.title}」（${account.likedTracks.length} 首已收藏歌曲，${account.playlists.length} 个歌单）',
+        '已备份账号「${account.title}」（${account.likedTracks.length} 首已点赞歌曲，${account.playlists.length} 个歌单）',
         icon: Icons.check_circle_rounded,
         tone: ToastTone.success,
       );
@@ -84,8 +95,28 @@ class BackupSection extends StatelessWidget {
     if (!context.mounted) return;
     AppToast.show(
       context,
-      '已同步 ${result.syncedPlaylists} 个备份歌单、${result.addedLikedTracks} 首收藏歌曲到本账号',
+      '已同步 ${result.syncedPlaylists} 个备份歌单、合并 ${result.addedLikedTracks} 首已点赞歌曲到本账号',
       icon: Icons.sync_rounded,
+      tone: ToastTone.success,
+    );
+  }
+
+  Future<void> _importSelectedPlaylists(
+    BuildContext context,
+    PlaylistBackupService service,
+    List<SpotifyPlaylist> allPlaylists,
+  ) async {
+    final selected = [
+      for (final p in allPlaylists)
+        if (_selectedPlaylistIds.contains(p.id)) p,
+    ];
+    if (selected.isEmpty) return;
+    final result = await service.importSelectedPlaylists(selected);
+    if (!context.mounted) return;
+    AppToast.show(
+      context,
+      '已导入所选 ${result.syncedPlaylists} 个歌单、合并 ${result.addedLikedTracks} 首已点赞歌曲到本账号',
+      icon: Icons.playlist_add_check_rounded,
       tone: ToastTone.success,
     );
   }
@@ -112,6 +143,21 @@ class BackupSection extends StatelessWidget {
         tone: ToastTone.success,
       );
     }
+  }
+
+  Future<void> _openTrackPickerDialog(
+    BuildContext context,
+    PlaylistBackupService service,
+    SpotifyPlaylist playlist,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => _TrackImportDialog(
+        playlist: playlist,
+        backupService: service,
+        library: context.read<LibraryProvider>(),
+      ),
+    );
   }
 
   @override
@@ -146,9 +192,20 @@ class BackupSection extends StatelessWidget {
         backupService?.allBackedUpPlaylists ?? const <SpotifyPlaylist>[];
     final backingUp = backupService?.isBackingUp ?? false;
 
+    if (!_initializedSelection && playlists.isNotEmpty) {
+      _initializedSelection = true;
+      for (final p in playlists) {
+        _selectedPlaylistIds.add(p.id);
+      }
+    }
+    final validIds = playlists.map((p) => p.id).toSet();
+    final selectedCount = _selectedPlaylistIds.intersection(validIds).length;
+    final allSelected =
+        validIds.isNotEmpty && selectedCount == validIds.length;
+
     return SettingsSection(
       title: '歌单备份',
-      footer: '备份的已收藏歌曲与歌单直接落盘保存，点击查看时直接读取本地数据，不做云端预览以防封禁。',
+      footer: '支持查看各账号自己的已点赞歌曲与歌单；无论是备份的歌曲还是歌单，都支持勾选其中一部分一键导入到当前账号。',
       children: [
         SettingsSwitchTile(
           title: '启用歌单备份',
@@ -203,7 +260,7 @@ class BackupSection extends StatelessWidget {
             ),
             SettingsTile(
               title: '一键同步已备份的歌单到本账号',
-              subtitle: '将下方已勾选账号的收藏歌曲与歌单合并到当前登录账号',
+              subtitle: '将下方已勾选账号的收藏歌曲合并进已点赞歌曲，并同步歌单到当前账号',
               trailing: const Icon(Icons.sync_rounded),
               onTap: accounts.isEmpty || backingUp
                   ? null
@@ -228,17 +285,75 @@ class BackupSection extends StatelessWidget {
               ),
             if (playlists.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Text(
-                  '已落盘的备份歌单（${playlists.length}）',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Checkbox(
+                          value: allSelected,
+                          onChanged: (_) {
+                            setState(() {
+                              if (allSelected) {
+                                _selectedPlaylistIds.removeAll(validIds);
+                              } else {
+                                _selectedPlaylistIds.addAll(validIds);
+                              }
+                            });
+                          },
+                        ),
+                        Text(
+                          '已落盘的备份歌单（已选 $selectedCount / ${playlists.length}）',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: selectedCount == 0 || backingUp
+                          ? null
+                          : () => _importSelectedPlaylists(
+                              context,
+                              backupService,
+                              playlists,
+                            ),
+                      icon: const Icon(
+                        Icons.playlist_add_check_rounded,
+                        size: 18,
+                      ),
+                      label: Text('一键导入所选歌单（$selectedCount）'),
+                    ),
+                  ],
                 ),
               ),
             for (final playlist in playlists)
-              _BackedUpPlaylistTile(playlist: playlist),
+              _BackedUpPlaylistTile(
+                playlist: playlist,
+                selected: _selectedPlaylistIds.contains(playlist.id),
+                onSelectedChanged: (v) {
+                  setState(() {
+                    if (v == true) {
+                      _selectedPlaylistIds.add(playlist.id);
+                    } else {
+                      _selectedPlaylistIds.remove(playlist.id);
+                    }
+                  });
+                },
+                onPickTracks: playlist.tracks.isEmpty
+                    ? null
+                    : () => _openTrackPickerDialog(
+                        context,
+                        backupService,
+                        playlist,
+                      ),
+              ),
           ],
         ],
       ],
@@ -259,13 +374,12 @@ class _BackupAccountTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final badge = account.isCurrentAccount ? '本机账号' : '外部备份账号';
     return SettingsTile(
       title: '${account.title}（$badge）',
       subtitle:
-          '已落盘 ${account.likedTracks.length} 首收藏歌曲 · ${account.playlists.length} 个歌单',
+          '已落盘 ${account.likedTracks.length} 首已点赞歌曲 · ${account.playlists.length} 个歌单',
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -291,31 +405,68 @@ class _BackupAccountTile extends StatelessWidget {
   }
 }
 
-/// 与媒体库列表一致的本地歌单行：点击直接进入 [PlaylistDetailScreen]（复用 `collection_widgets.dart`）。
+/// 备份歌单行：
+/// - 左侧复选框支持勾选部分歌单批量导入；
+/// - 点击整行直接进入 [PlaylistDetailScreen] 查看该账号的已点赞歌曲或歌单（详情页内也可勾选部分歌曲导入）；
+/// - 右侧「选歌导入」按钮可直接弹窗勾选该歌单内的一部分歌曲一键导入到本账号。
 class _BackedUpPlaylistTile extends StatelessWidget {
   final SpotifyPlaylist playlist;
+  final bool selected;
+  final ValueChanged<bool?> onSelectedChanged;
+  final VoidCallback? onPickTracks;
 
-  const _BackedUpPlaylistTile({required this.playlist});
+  const _BackedUpPlaylistTile({
+    required this.playlist,
+    required this.selected,
+    required this.onSelectedChanged,
+    this.onPickTracks,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = context.l10n;
+    final isLiked = playlist.id.startsWith(BackupAccount.backupLikedPrefix);
+    final count = playlist.tracks.isNotEmpty
+        ? playlist.tracks.length
+        : playlist.totalTracks;
+
     return InkWell(
       mouseCursor: SystemMouseCursors.click,
       borderRadius: context.tokens.radius(12),
       onTap: () => AppRoutes.openPlaylist(context, playlist),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            CoverImage(
-              url: playlist.coverUrl,
-              size: 48,
-              borderRadius: context.tokens.radius(8),
-              placeholderIcon: Icons.queue_music_rounded,
-            ),
+            Checkbox(value: selected, onChanged: onSelectedChanged),
+            const SizedBox(width: 4),
+            if (isLiked)
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  borderRadius: context.tokens.radius(8),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF450AF5), Color(0xFFC4EFD9)],
+                  ),
+                ),
+                child: const Icon(
+                  Icons.favorite_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              )
+            else
+              CoverImage(
+                url: playlist.coverUrl,
+                size: 48,
+                borderRadius: context.tokens.radius(8),
+                placeholderIcon: Icons.queue_music_rounded,
+              ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -331,14 +482,7 @@ class _BackedUpPlaylistTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    l10n.subtitleJoin(
-                      playlist.ownerName,
-                      l10n.songCount(
-                        playlist.tracks.isNotEmpty
-                            ? playlist.tracks.length
-                            : playlist.totalTracks,
-                      ),
-                    ),
+                    l10n.subtitleJoin(playlist.ownerName, l10n.songCount(count)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -348,6 +492,12 @@ class _BackedUpPlaylistTile extends StatelessWidget {
                 ],
               ),
             ),
+            if (onPickTracks != null)
+              IconButton(
+                icon: const Icon(Icons.checklist_rounded, size: 22),
+                tooltip: '选择部分歌曲一键导入到本账号',
+                onPressed: onPickTracks,
+              ),
             Icon(
               Icons.chevron_right_rounded,
               color: colorScheme.onSurfaceVariant,
@@ -355,6 +505,160 @@ class _BackedUpPlaylistTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 弹窗勾选歌单或某账号「已点赞的歌曲」中的一部分歌曲，一键导入到当前账号。
+class _TrackImportDialog extends StatefulWidget {
+  final SpotifyPlaylist playlist;
+  final PlaylistBackupService backupService;
+  final LibraryProvider library;
+
+  const _TrackImportDialog({
+    required this.playlist,
+    required this.backupService,
+    required this.library,
+  });
+
+  @override
+  State<_TrackImportDialog> createState() => _TrackImportDialogState();
+}
+
+class _TrackImportDialogState extends State<_TrackImportDialog> {
+  late final Set<String> _selectedIds = {
+    for (final t in widget.playlist.tracks)
+      if (t.id.isNotEmpty) t.id,
+  };
+
+  List<SpotifyTrack> get _selectedTracks => [
+    for (final t in widget.playlist.tracks)
+      if (_selectedIds.contains(t.id)) t,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final tracks = widget.playlist.tracks;
+    final allIds = tracks.map((t) => t.id).where((id) => id.isNotEmpty).toSet();
+    final allSelected =
+        allIds.isNotEmpty && _selectedIds.length == allIds.length;
+    final isBackupLiked =
+        widget.playlist.id.startsWith(BackupAccount.backupLikedPrefix);
+    final selected = _selectedTracks;
+
+    return AlertDialog(
+      title: Text('选择要导入的歌曲 · ${widget.playlist.name}'),
+      content: SizedBox(
+        width: 520,
+        height: 420,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      if (allSelected) {
+                        _selectedIds.clear();
+                      } else {
+                        _selectedIds.addAll(allIds);
+                      }
+                    });
+                  },
+                  icon: Icon(
+                    allSelected
+                        ? Icons.check_box_rounded
+                        : Icons.check_box_outline_blank_rounded,
+                    size: 20,
+                  ),
+                  label: Text(allSelected ? '取消全选' : '全选'),
+                ),
+                const Spacer(),
+                Text('已选 ${selected.length} / ${tracks.length} 首'),
+              ],
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView.builder(
+                itemCount: tracks.length,
+                itemBuilder: (context, index) {
+                  final track = tracks[index];
+                  final checked = _selectedIds.contains(track.id);
+                  return CheckboxListTile(
+                    value: checked,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: Text(
+                      track.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      track.artistNames,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onChanged: (v) {
+                      setState(() {
+                        if (v == true) {
+                          _selectedIds.add(track.id);
+                        } else {
+                          _selectedIds.remove(track.id);
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        if (!isBackupLiked)
+          OutlinedButton.icon(
+            onPressed: selected.isEmpty
+                ? null
+                : () {
+                    final imported = widget.playlist.copyWith(
+                      tracks: selected,
+                      totalTracks: selected.length,
+                    );
+                    widget.library.upsertLocalPlaylist(imported);
+                    Navigator.of(context).pop();
+                    AppToast.show(
+                      context,
+                      '已将所选 ${selected.length} 首歌曲作为歌单「${widget.playlist.name}」导入到本账号',
+                      icon: Icons.playlist_add_check_rounded,
+                      tone: ToastTone.success,
+                    );
+                  },
+            icon: const Icon(Icons.library_add_rounded, size: 18),
+            label: Text('导入所选为歌单（${selected.length}）'),
+          ),
+        FilledButton.icon(
+          onPressed: selected.isEmpty
+              ? null
+              : () async {
+                  final added = await widget.backupService
+                      .importSelectedTracksToLiked(selected);
+                  if (!context.mounted) return;
+                  Navigator.of(context).pop();
+                  AppToast.show(
+                    context,
+                    '已将所选 ${selected.length} 首歌曲合并导入到本账号「已点赞的歌曲」（新增 $added 首）',
+                    icon: Icons.favorite_rounded,
+                    tone: ToastTone.success,
+                  );
+                },
+          icon: const Icon(Icons.favorite_rounded, size: 18),
+          label: Text('合并到已点赞歌曲（${selected.length}）'),
+        ),
+      ],
     );
   }
 }
