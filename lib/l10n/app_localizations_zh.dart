@@ -541,6 +541,34 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get playbackErrorRegionBlocked => '当前网络出口在中国大陆，Spotify 无法播放。请切换节点后重试';
+
+  @override
+  String get regionCheckSectionTitle => '网络地区检测';
+
+  @override
+  String get regionCheckSectionSubtitle => '登录与播放前先确认网络出口，检测到中国大陆就停下列表';
+
+  @override
+  String get regionCheckEnabled => '启用地区检测';
+
+  @override
+  String get regionCheckEnabledHint => '关闭后不再发起任何检测，也不拦截登录与播放';
+
+  @override
+  String get regionCheckOnNetworkChange => '网络变动时自动复查';
+
+  @override
+  String get regionCheckOnNetworkChangeHint =>
+      '切换 Wi-Fi / 代理后重新检测一次；关闭则不复查，只在起播时用上一次的结果';
+
+  @override
+  String get regionCheckSkipThisRun => '本次打开跳过检测';
+
+  @override
+  String get regionCheckSkipThisRunHint => '只在本次运行生效，下次启动恢复检测';
+
+  @override
   String playbackErrorWidevine(String track) {
     return '「$track」无法解密播放：此设备缺少 Widevine 组件';
   }
@@ -607,6 +635,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get lyricsFromNetease => '歌词来自网易云音乐';
+
+  @override
+  String get lyricsFromSpotify => '歌词来自 Spotify';
 
   @override
   String get lyricsImmersive => '沉浸式歌词';
@@ -1164,7 +1195,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsDefaultRepeat => '默认循环方式';
 
   @override
-  String get settingsDefaultRepeatSubtitle => '应用启动时使用的循环方式，覆盖上次退出时的状态';
+  String get settingsDefaultRepeatSubtitle => '切换歌单、专辑等播放列表时默认生效的循环方式';
 
   @override
   String get settingsRepeatOff => '不循环';
@@ -1814,6 +1845,74 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get updatesDetails => '查看更新';
+
+  @override
+  String get webLoginRegionChecking => '正在检测网络地区…';
+
+  @override
+  String get webLoginRegionCheckingHint => '登录页加载前先确认当前网络出口，避免在不可用的地区登录失败';
+
+  @override
+  String get webLoginRegionBlockedTitle => '当前网络出口位于中国大陆';
+
+  @override
+  String get webLoginRegionBlockedBody =>
+      'Spotify 在中国大陆不可用，登录大概率会失败或被限制。请开启代理并切换到海外节点，然后重新检测。';
+
+  @override
+  String get webLoginRegionRecheck => '重新检测';
+
+  @override
+  String get webLoginRegionForceSkip => '强制跳过';
+
+  @override
+  String get webLoginRegionSkipThisRun => '本次打开跳过检测';
+
+  @override
+  String get settingsAnimDebugSection => '动画调试（临时）';
+
+  @override
+  String get settingsAnimDebugFooter =>
+      '仅本次运行有效，重启应用后自动恢复。用于定位卡顿：逐项关闭，看关掉哪一项后变流畅。';
+
+  @override
+  String get settingsAnimDebugResetAll => '全部恢复';
+
+  @override
+  String get settingsAnimDebugAllMotion => '关闭所有过渡动画';
+
+  @override
+  String get settingsAnimDebugAllMotionSubtitle => '等同系统“移除动画”：界面过渡与流动背景都会停止';
+
+  @override
+  String get settingsAnimDebugLyricsLine => '关闭歌词行对焦动画';
+
+  @override
+  String get settingsAnimDebugLyricsLineSubtitle => '行的放大、模糊、透明度渐变改为直接切换';
+
+  @override
+  String get settingsAnimDebugLyricsScroll => '关闭歌词切行滚动动画';
+
+  @override
+  String get settingsAnimDebugLyricsScrollSubtitle => '切换歌词行时列表直接跳到位置，没有位移过渡';
+
+  @override
+  String get settingsAnimDebugLyricsMask => '关闭歌词边缘渐隐遮罩';
+
+  @override
+  String get settingsAnimDebugLyricsMaskSubtitle => '去掉歌词区上下边缘的整块离屏遮罩层';
+
+  @override
+  String get settingsAnimDebugGlass => '关闭玻璃背景模糊';
+
+  @override
+  String get settingsAnimDebugGlassSubtitle => '玻璃卡片与按钮不再每帧模糊下方画面';
+
+  @override
+  String get settingsAnimDebugBackground => '关闭流动背景动画';
+
+  @override
+  String get settingsAnimDebugBackgroundSubtitle => '歌词背景停在静态画面';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -2353,6 +2452,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
+  String get playbackErrorRegionBlocked => '目前網路出口位於中國大陸，Spotify 無法播放。請切換節點後重試';
+
+  @override
+  String get regionCheckSectionTitle => '網路地區偵測';
+
+  @override
+  String get regionCheckSectionSubtitle => '登入與播放前先確認網路出口，偵測到中國大陸就停止列表';
+
+  @override
+  String get regionCheckEnabled => '啟用區域偵測';
+
+  @override
+  String get regionCheckEnabledHint => '關閉後不再發起任何偵測，也不攔截登入與播放';
+
+  @override
+  String get regionCheckOnNetworkChange => '網路變動時自動複查';
+
+  @override
+  String get regionCheckOnNetworkChangeHint =>
+      '切換 Wi-Fi / 代理後重新偵測一次；關閉則不複查，只在起播時沿用上一次的結果';
+
+  @override
+  String get regionCheckSkipThisRun => '本次開啟跳過偵測';
+
+  @override
+  String get regionCheckSkipThisRunHint => '只在本次執行生效，下次啟動恢復偵測';
+
+  @override
   String playbackErrorWidevine(String track) {
     return '「$track」無法解密播放：此裝置缺少 Widevine 組件';
   }
@@ -2419,6 +2546,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get lyricsFromNetease => '歌詞來自網易雲音樂';
+
+  @override
+  String get lyricsFromSpotify => '歌詞來自 Spotify';
 
   @override
   String get lyricsImmersive => '沉浸式歌詞';
@@ -2976,7 +3106,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get settingsDefaultRepeat => '預設循環方式';
 
   @override
-  String get settingsDefaultRepeatSubtitle => '應用程式啟動時使用的循環方式，覆蓋上次結束時的狀態';
+  String get settingsDefaultRepeatSubtitle => '切換歌單、專輯等播放列表時預設生效的循環方式';
 
   @override
   String get settingsRepeatOff => '不循環';
@@ -3625,4 +3755,72 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get updatesDetails => '查看更新';
+
+  @override
+  String get webLoginRegionChecking => '正在偵測網路地區…';
+
+  @override
+  String get webLoginRegionCheckingHint => '登入頁載入前先確認目前的網路出口，避免在無法使用的地區登入失敗';
+
+  @override
+  String get webLoginRegionBlockedTitle => '目前網路出口位於中國大陸';
+
+  @override
+  String get webLoginRegionBlockedBody =>
+      'Spotify 在中國大陸無法使用，登入很可能會失敗或受限。請開啟代理並切換到海外節點，然後重新偵測。';
+
+  @override
+  String get webLoginRegionRecheck => '重新偵測';
+
+  @override
+  String get webLoginRegionForceSkip => '強制跳過';
+
+  @override
+  String get webLoginRegionSkipThisRun => '本次開啟跳過偵測';
+
+  @override
+  String get settingsAnimDebugSection => '動畫除錯（暫時）';
+
+  @override
+  String get settingsAnimDebugFooter =>
+      '僅本次執行有效，重新啟動應用程式後自動恢復。用於定位卡頓：逐項關閉，看關掉哪一項後變流暢。';
+
+  @override
+  String get settingsAnimDebugResetAll => '全部恢復';
+
+  @override
+  String get settingsAnimDebugAllMotion => '關閉所有轉場動畫';
+
+  @override
+  String get settingsAnimDebugAllMotionSubtitle => '等同系統「移除動畫」：介面轉場與流動背景都會停止';
+
+  @override
+  String get settingsAnimDebugLyricsLine => '關閉歌詞行對焦動畫';
+
+  @override
+  String get settingsAnimDebugLyricsLineSubtitle => '行的放大、模糊、透明度漸變改為直接切換';
+
+  @override
+  String get settingsAnimDebugLyricsScroll => '關閉歌詞換行捲動動畫';
+
+  @override
+  String get settingsAnimDebugLyricsScrollSubtitle => '切換歌詞行時列表直接跳到位置，沒有位移轉場';
+
+  @override
+  String get settingsAnimDebugLyricsMask => '關閉歌詞邊緣漸隱遮罩';
+
+  @override
+  String get settingsAnimDebugLyricsMaskSubtitle => '移除歌詞區上下邊緣的整塊離屏遮罩層';
+
+  @override
+  String get settingsAnimDebugGlass => '關閉玻璃背景模糊';
+
+  @override
+  String get settingsAnimDebugGlassSubtitle => '玻璃卡片與按鈕不再每幀模糊下方畫面';
+
+  @override
+  String get settingsAnimDebugBackground => '關閉流動背景動畫';
+
+  @override
+  String get settingsAnimDebugBackgroundSubtitle => '歌詞背景停在靜態畫面';
 }

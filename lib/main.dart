@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'core/debug_toggles.dart';
 import 'core/perf_flags.dart';
 import 'core/utils/file_log.dart';
 import 'core/utils/local_device_name.dart';
@@ -35,9 +36,11 @@ import 'providers/spotify_provider.dart';
 import 'services/audio/audio_engine.dart';
 import 'services/audio/routed_audio_engine.dart';
 import 'services/audio_player_service.dart';
+import 'services/auth/login_region_check.dart';
 import 'services/auth/spotify_auth_service.dart';
 import 'services/auth/session_http_client.dart';
 import 'services/auth/web_token_service.dart';
+import 'services/backup/playlist_backup_service.dart';
 import 'services/eme/eme_audio_engine.dart';
 import 'services/eme/eme_player.dart';
 import 'services/eme/license_client.dart';
@@ -65,6 +68,7 @@ import 'services/media_controls/system_media_controls.dart';
 import 'services/network/network_proxy.dart';
 import 'services/network/system_proxy_channel.dart';
 import 'services/network/windows_trust_store.dart';
+import 'services/playback/playback_region_gate.dart';
 import 'services/playback_session_store.dart';
 import 'services/protocol/audio_cache_store.dart';
 import 'services/cache/cache_location.dart';
@@ -88,6 +92,7 @@ import 'ui/widgets/automatic_gateway_binding.dart';
 import 'ui/widgets/playback_session_keeper.dart';
 import 'ui/widgets/taskbar_lyrics_binding.dart';
 import 'ui/widgets/update_prompt.dart';
+
 Future<void> main() async {
   // 必须先于任何其他 binding 创建：帧率上限在帧调度入口生效
   FrameRateBinding.ensureInitialized();
@@ -317,6 +322,20 @@ Future<Widget> _initializeApp(ValueChanged<String> reportStage) async {
   audioCacheLocation.artworkMaintenance = artworkCache.maintain;
   CachedNetworkImageProvider.defaultCacheManager = artworkCache;
 
+  // 网络出口地区门控：登录页与播放侧共用一套检测结论（见 PlaybackRegionGate）。
+  // 开关每次都现读偏好，设置里改完立即生效；「本次打开跳过」在 LoginRegionCheck 里。
+  final playbackRegionGate = PlaybackRegionGate(
+    enabled: () => AppPreferences.decode(
+      storageService.preferencesJson,
+    ).regionCheckEnabled,
+    recheckOnNetworkChange: () => AppPreferences.decode(
+      storageService.preferencesJson,
+    ).regionCheckOnNetworkChange,
+    skipThisRun: () => LoginRegionCheck.skippedThisRun,
+  );
+  // EME 建好 WebView2 环境后立刻接上：检测用同一个环境，不再另开一个（同目录只允许一个实例）
+  EmePlayer.environmentReady = playbackRegionGate.attachEnvironment;
+
   return FlutifyApp(
     storageService: storageService,
     audioEngine: audioEngine,
@@ -333,9 +352,12 @@ Future<Widget> _initializeApp(ValueChanged<String> reportStage) async {
     lyricsTranslation: lyricsTranslation,
     qqLyricsTranslation: qqLyricsTranslation,
     taskbarLyrics: taskbarLyrics,
+    playbackRegionGate: playbackRegionGate,
     updateService: UpdateService(
       storage: storageService,
-      installer: PlatformUpdateInstaller(closeWindows: DesktopWindow.closeForUpdate),
+      installer: PlatformUpdateInstaller(
+        closeWindows: DesktopWindow.closeForUpdate,
+      ),
     ),
   );
 }
@@ -378,6 +400,12 @@ class FlutifyApp extends StatelessWidget {
 
   /// 任务栏歌词（Windows）；已包含在 [mediaControls] 里，这里供界面层绑定设置与歌词来源。
   final TaskbarLyricsControls? taskbarLyrics;
+
+  /// 起播前的网络出口地区门控；为空时不做地区检测（测试默认）。
+  ///
+  /// 由 main 创建、和 PlaybackProvider / AutomaticGatewayBinding 共用同一个实例：
+  /// 检测结果按网络环境缓存，网络变动时由 AutomaticGatewayBinding 作废。
+  final PlaybackRegionGate? playbackRegionGate;
   final UpdateService? updateService;
 
   const FlutifyApp({
@@ -397,6 +425,7 @@ class FlutifyApp extends StatelessWidget {
     this.lyricsTranslation,
     this.qqLyricsTranslation,
     this.taskbarLyrics,
+    this.playbackRegionGate,
     this.updateService,
   });
 
@@ -436,6 +465,7 @@ class FlutifyApp extends StatelessWidget {
               storageService,
               audioLoader: trackAudioLoader,
               sessionStore: playbackSessionStore,
+              regionGate: playbackRegionGate,
               defaultRepeatMode: AppPreferences.decode(
                 storageService.preferencesJson,
               ).defaultRepeatMode,
@@ -486,6 +516,14 @@ class FlutifyApp extends StatelessWidget {
             });
             return preferences;
           },
+        ),
+        ChangeNotifierProvider(
+          create: (ctx) => PlaylistBackupService(
+            storageService,
+            library: ctx.read<LibraryProvider>(),
+            preferences: ctx.read<PreferencesProvider>(),
+            apiService: spotifyApiService,
+          ),
         ),
         // 在 PreferencesProvider 之后创建：歌词补全 / 双语歌词开关在每次取歌词时读取
         ChangeNotifierProvider(
@@ -581,7 +619,12 @@ class FlutifyApp extends StatelessWidget {
                   start,
                 );
                 try {
-                  await connect.playOnReceiver(request);
+                  final repeat = playback.repeatMode;
+                  await connect.playOnReceiver(
+                    request,
+                    repeatingContext: repeat != SpotifyRepeatMode.off,
+                    repeatingTrack: repeat == SpotifyRepeatMode.track,
+                  );
                   return true;
                 } on ConnectException catch (e) {
                   playback.cancelReceiverQueue(queueTicket);
@@ -619,8 +662,9 @@ class FlutifyApp extends StatelessWidget {
           },
         ),
       ],
-      child: const PlaybackSessionKeeper(
+      child: PlaybackSessionKeeper(
         child: AutomaticGatewayBinding(
+          regionGate: playbackRegionGate,
           child: DynamicAccentSync(child: _ThemedApp()),
         ),
       ),
@@ -684,17 +728,14 @@ void _startConnectReceiver(
   }
 
   host.handOver = handOver;
-  host.onLocalOptions = (shuffle, repeat) {
-    unawaited(
-      connect
-          .setReceiverOptions(
-            shuffle: shuffle,
-            repeatContext: repeat != SpotifyRepeatMode.off,
-            repeatTrack: repeat == SpotifyRepeatMode.track,
-          )
-          .catchError((Object e) => debugPrint('[Receiver] 同步随机 / 循环失败：$e')),
-    );
-  };
+  // 返回给 host：它在等服务端确认本机刚改的随机 / 循环，确认一到（true）或被拒（false）
+  // 就解除等待，让服务端的值重新生效。
+  host.onLocalOptions = ({shuffle, repeatContext, repeatTrack}) =>
+      connect.setReceiverOptions(
+        shuffle: shuffle,
+        repeatContext: repeatContext,
+        repeatTrack: repeatTrack,
+      );
 
   // 「启动时同步播放状态」：每次启动只做一次。注册后要等设备出现在 cluster 里（推送有延迟），
   // 本机未播放、其他设备也没在出声时，把上次的曲目以暂停状态同步出去
@@ -810,28 +851,37 @@ class _ThemedApp extends StatelessWidget {
         // 实际生效的界面语言决定请求 Spotify 时的 Accept-Language（主页文案等随之本地化）
         AppLocale.resolved(Localizations.localeOf(context));
         final media = MediaQuery.of(context);
-        return MediaQuery(
-          data: media.copyWith(
-            // 用户字号与系统字号相乘
-            textScaler: AppTextScaler(media.textScaler, settings.fontScale),
-            disableAnimations: media.disableAnimations || settings.reduceMotion,
-          ),
-          // 状态栏 / 导航栏图标随深浅色切换；全屏播放器等深色沉浸页面自行覆盖为浅色图标
-          child: AnnotatedRegion<SystemUiOverlayStyle>(
-            value: systemBarsStyle(Theme.of(context).brightness),
-            // 桌面：窗口按钮 / 窄窗口标题条覆盖在所有路由之上
-            // macOS 原生菜单栏常驻于此（卸载会清空系统菜单），主界面动作由 MainShell 注册
-            child: ExcludeSemantics(
-              excluding: _excludeWindowsSemantics,
-              child: Listener(
-                behavior: HitTestBehavior.translucent,
-                onPointerDown: _onMouseNavigation,
-                child: MacMenuBar(
-                  child: TaskbarLyricsBinding(child: WindowFrame(child: child!)),
+        return DebugTogglesBinding(
+          builder: (context, motionOff) {
+            return MediaQuery(
+              data: media.copyWith(
+                // 用户字号与系统字号相乘
+                textScaler: AppTextScaler(media.textScaler, settings.fontScale),
+                disableAnimations:
+                    media.disableAnimations ||
+                    settings.reduceMotion ||
+                    motionOff,
+              ),
+              // 状态栏 / 导航栏图标随深浅色切换；全屏播放器等深色沉浸页面自行覆盖为浅色图标
+              child: AnnotatedRegion<SystemUiOverlayStyle>(
+                value: systemBarsStyle(Theme.of(context).brightness),
+                // 桌面：窗口按钮 / 窄窗口标题条覆盖在所有路由之上
+                // macOS 原生菜单栏常驻于此（卸载会清空系统菜单），主界面动作由 MainShell 注册
+                child: ExcludeSemantics(
+                  excluding: _excludeWindowsSemantics,
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: _onMouseNavigation,
+                    child: MacMenuBar(
+                      child: TaskbarLyricsBinding(
+                        child: WindowFrame(child: child!),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
       home: const UpdatePromptBinding(child: MainShell()),

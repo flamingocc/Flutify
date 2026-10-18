@@ -99,4 +99,33 @@ void main() {
     final b = await centerPixel(size, art: image, phase: 37.5);
     expectNear(b, [a[0].toDouble(), a[1].toDouble(), a[2].toDouble()], tolerance: 2);
   });
+
+  test('reuses cached blurred artwork across animation frames without re-rasterizing', () {
+    const size = Size(390, 844);
+    // 先热身一次确保缓存就绪
+    final warmup = ui.PictureRecorder();
+    LiquidArtworkPainter(
+      phase: ValueNotifier(0),
+      fade: const AlwaysStoppedAnimation(1),
+      image: image,
+    ).paint(ui.Canvas(warmup), size);
+    warmup.endRecording().dispose();
+
+    final before = LiquidArtworkPainter.debugRasterizeCount;
+    for (var frame = 1; frame <= 60; frame++) {
+      final recorder = ui.PictureRecorder();
+      LiquidArtworkPainter(
+        phase: ValueNotifier(frame * 0.033),
+        fade: AlwaysStoppedAnimation(frame / 60),
+        image: image,
+        dark: frame.isEven,
+      ).paint(ui.Canvas(recorder), size);
+      recorder.endRecording().dispose();
+    }
+    expect(
+      LiquidArtworkPainter.debugRasterizeCount,
+      before,
+      reason: '同一封面与尺寸在动画推进期间不应重复执行离屏模糊与 toImageSync',
+    );
+  });
 }

@@ -10,10 +10,12 @@ import '../../../models/share_target.dart';
 import '../../../models/track.dart';
 import '../../../providers/library_provider.dart';
 import '../../../providers/preferences_provider.dart';
+import '../../../services/backup/playlist_backup_service.dart';
 import '../../../services/spotify_api_service.dart';
 import '../../shell/shell_breakpoints.dart';
 import '../../widgets/content_bottom_spacer.dart';
 import '../../widgets/share/share_button.dart';
+import '../../widgets/toast/app_toast.dart';
 import '../../widgets/track_table/track_list_toolbar.dart';
 import '../../widgets/track_table/track_sort.dart';
 import '../../widgets/track_table/track_table_columns.dart';
@@ -28,8 +30,13 @@ import 'widgets/collection_widgets.dart';
 /// - 从 Browse API 拿到的歌单通常不含曲目，打开时再请求 /playlists/{id}。
 class PlaylistDetailScreen extends StatefulWidget {
   final SpotifyPlaylist playlist;
+  final bool initialSelecting;
 
-  const PlaylistDetailScreen({super.key, required this.playlist});
+  const PlaylistDetailScreen({
+    super.key,
+    required this.playlist,
+    this.initialSelecting = false,
+  });
 
   @override
   State<PlaylistDetailScreen> createState() => _PlaylistDetailScreenState();
@@ -39,6 +46,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   SpotifyPlaylist? _fetched;
   bool _loading = false;
   Object? _error;
+  late bool _selecting = widget.initialSelecting;
+  final Set<String> _selectedTrackIds = {};
 
   /// 歌单内搜索与排序（只在本页有效，离开即重置，与官方一致）。
   String _query = '';
@@ -62,8 +71,14 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   void initState() {
     super.initState();
     final p = widget.playlist;
+    if (widget.initialSelecting) {
+      _selectedTrackIds.addAll(
+        p.tracks.map((t) => t.id).where((id) => id.isNotEmpty),
+      );
+    }
     final isLibraryOwned =
         p.id == LibraryProvider.likedSongsId ||
+        p.id.startsWith(BackupAccount.backupLikedPrefix) ||
         context.read<LibraryProvider>().isOwnPlaylist(p.id);
     // 卡片上的曲目数不可靠（主页 / 搜索卡片常缺，daylist 等动态歌单也可能报 0）：没带曲目就去拉
     if (!isLibraryOwned &&
@@ -103,6 +118,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final playlist = _fetched ?? libraryVersion ?? widget.playlist;
     final tracks = playlist.tracks;
     final isLikedSongs = playlist.id == LibraryProvider.likedSongsId;
+    final isBackupLikedSongs =
+        playlist.id.startsWith(BackupAccount.backupLikedPrefix);
     final isOwn = library.isOwnPlaylist(playlist.id);
     final l10n = context.l10n;
     // 「已点赞的歌曲」由 LibraryProvider 生成，名称与简介按界面语言展示
@@ -147,6 +164,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           description: description,
           summary: summary,
           isLikedSongs: isLikedSongs,
+          isBackupLikedSongs: isBackupLikedSongs,
           isOwn: isOwn,
           isSaved: isSaved,
           playbackContext: playbackContext,
@@ -174,6 +192,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     required String description,
     required String summary,
     required bool isLikedSongs,
+    required bool isBackupLikedSongs,
     required bool isOwn,
     required bool isSaved,
     required PlaybackContext playbackContext,
@@ -184,8 +203,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final l10n = context.l10n;
     final library = context.read<LibraryProvider>();
     return CollectionTintScope(
-      imageUrl: isLikedSongs ? '' : playlist.coverUrl,
-      fallback: isLikedSongs
+      imageUrl: (isLikedSongs || isBackupLikedSongs) ? '' : playlist.coverUrl,
+      fallback: (isLikedSongs || isBackupLikedSongs)
           ? const Color(0xFF4A2FB8)
           : const Color(0xFF3A3A48),
       child: CustomScrollView(
@@ -194,7 +213,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             typeLabel: l10n.typePlaylist,
             title: title,
             imageUrl: playlist.coverUrl,
-            coverOverride: isLikedSongs ? const _LikedSongsCover() : null,
+            coverOverride: (isLikedSongs || isBackupLikedSongs)
+                ? const _LikedSongsCover()
+                : null,
             meta: _PlaylistMeta(
               description: description,
               ownerName: playlist.ownerName,
@@ -229,12 +250,40 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               : _setCompact,
                         ),
                   leading: [
-                    if (!isLikedSongs && !isOwn)
+                    if (!isLikedSongs && !isBackupLikedSongs && !isOwn)
                       SaveToggleButton(
                         saved: isSaved,
                         onPressed: () => library.togglePlaylistSaved(playlist),
                       ),
-                    ShareButton(target: ShareTarget.playlist(playlist)),
+                    if (!isLikedSongs && tracks.isNotEmpty)
+                      IconButton(
+                        icon: Icon(
+                          _selecting
+                              ? Icons.check_box_rounded
+                              : Icons.playlist_add_check_rounded,
+                          size: 26,
+                          color: _selecting
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
+                        ),
+                        tooltip: _selecting
+                            ? '退出选择歌曲'
+                            : '选择部分歌曲一键导入到本账号',
+                        onPressed: () {
+                          setState(() {
+                            _selecting = !_selecting;
+                            if (_selecting && _selectedTrackIds.isEmpty) {
+                              _selectedTrackIds.addAll(
+                                visible
+                                    .map((t) => t.id)
+                                    .where((id) => id.isNotEmpty),
+                              );
+                            }
+                          });
+                        },
+                      ),
+                    if (!isBackupLikedSongs)
+                      ShareButton(target: ShareTarget.playlist(playlist)),
                     if (isOwn)
                       PopupMenuButton<String>(
                         icon: const Icon(Icons.more_horiz_rounded, size: 28),
@@ -257,6 +306,16 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               ),
             ),
           ),
+
+          if (_selecting && tracks.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _buildSelectionBar(
+                context,
+                playlist: playlist,
+                visible: visible,
+                isBackupLikedSongs: isBackupLikedSongs,
+              ),
+            ),
 
           if (_loading)
             const CollectionPlaceholder(loading: true)
@@ -323,6 +382,119 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     prefs.update(prefs.prefs.copyWith(compactTrackList: compact));
   }
 
+  Widget _buildSelectionBar(
+    BuildContext context, {
+    required SpotifyPlaylist playlist,
+    required List<SpotifyTrack> visible,
+    required bool isBackupLikedSongs,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final visibleIds = visible
+        .map((t) => t.id)
+        .where((id) => id.isNotEmpty)
+        .toList();
+    final allSelected =
+        visibleIds.isNotEmpty && visibleIds.every(_selectedTrackIds.contains);
+    final selectedTracks = [
+      for (final t in visible)
+        if (_selectedTrackIds.contains(t.id)) t,
+    ];
+
+    Future<void> importToLiked() async {
+      if (selectedTracks.isEmpty) return;
+      final backup = context.read<PlaylistBackupService?>();
+      final library = context.read<LibraryProvider>();
+      var added = 0;
+      if (backup != null) {
+        added = await backup.importSelectedTracksToLiked(selectedTracks);
+      } else {
+        for (final t in selectedTracks.reversed) {
+          if (t.id.isNotEmpty && !library.isLiked(t.id)) {
+            library.toggleLike(t);
+            added++;
+          }
+        }
+      }
+      if (!context.mounted) return;
+      AppToast.show(
+        context,
+        '已将所选 ${selectedTracks.length} 首歌曲合并导入到本账号「已点赞的歌曲」（新增 $added 首）',
+        icon: Icons.favorite_rounded,
+        tone: ToastTone.success,
+      );
+    }
+
+    void importAsPlaylist() {
+      if (selectedTracks.isEmpty) return;
+      final library = context.read<LibraryProvider>();
+      final imported = playlist.copyWith(
+        tracks: selectedTracks,
+        totalTracks: selectedTracks.length,
+      );
+      library.upsertLocalPlaylist(imported);
+      AppToast.show(
+        context,
+        '已导入歌单「${playlist.name}」（包含所选 ${selectedTracks.length} 首歌曲）到本账号',
+        icon: Icons.playlist_add_check_rounded,
+        tone: ToastTone.success,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Material(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    if (allSelected) {
+                      _selectedTrackIds.removeAll(visibleIds);
+                    } else {
+                      _selectedTrackIds.addAll(visibleIds);
+                    }
+                  });
+                },
+                icon: Icon(
+                  allSelected
+                      ? Icons.check_box_rounded
+                      : Icons.check_box_outline_blank_rounded,
+                  size: 20,
+                ),
+                label: Text(allSelected ? '取消全选' : '全选'),
+              ),
+              Text(
+                '已选 ${selectedTracks.length} / ${visible.length} 首',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: selectedTracks.isEmpty ? null : importToLiked,
+                icon: const Icon(Icons.favorite_rounded, size: 18),
+                label: const Text('一键合并到本账号已点赞歌曲'),
+              ),
+              if (!isBackupLikedSongs)
+                OutlinedButton.icon(
+                  onPressed: selectedTracks.isEmpty ? null : importAsPlaylist,
+                  icon: const Icon(Icons.library_add_rounded, size: 18),
+                  label: const Text('将所选导入为本账号歌单'),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// [queue] 是排序后的完整歌单（搜索时也从完整列表接着播），[index] 是在显示列表里的位置。
   Widget _buildTile(
     SpotifyTrack track,
@@ -332,7 +504,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     required TrackTableColumns? columns,
     required String? ownPlaylistId,
   }) {
-    final tile = TrackTile(
+    Widget tile = TrackTile(
       key: ValueKey(track.id),
       track: track,
       index: index + 1,
@@ -341,6 +513,29 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       playbackContext: ctx,
       columns: columns,
     );
+    if (_selecting) {
+      final selected = _selectedTrackIds.contains(track.id);
+      tile = Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Checkbox(
+              value: selected,
+              onChanged: (v) {
+                setState(() {
+                  if (v == true) {
+                    _selectedTrackIds.add(track.id);
+                  } else {
+                    _selectedTrackIds.remove(track.id);
+                  }
+                });
+              },
+            ),
+          ),
+          Expanded(child: tile),
+        ],
+      );
+    }
     if (ownPlaylistId == null) return tile;
 
     // 自建歌单支持左滑移除曲目。定高列表里行不能收缩，滑出后立即移除（不做收起动画）

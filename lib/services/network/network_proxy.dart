@@ -230,6 +230,48 @@ class NetworkProxy {
     }
   }();
 
+  /// 快速探测当前网络出口国家代码（无连接池缓存，在开关代理的瞬间立即反映最新出口）。
+  Future<String?> probeCurrentCountry() async {
+    if (_mode == ProxyMode.system) await refreshSystem();
+    final client = HttpClient()
+      ..findProxy = findProxy
+      ..idleTimeout = Duration.zero
+      ..connectionTimeout = const Duration(seconds: 3);
+    const urls = [
+      'https://www.cloudflare.com/cdn-cgi/trace',
+      'https://cloudflare.com/cdn-cgi/trace',
+      'https://1.1.1.1/cdn-cgi/trace',
+    ];
+    try {
+      for (final url in urls) {
+        try {
+          final req = await client
+              .getUrl(Uri.parse(url))
+              .timeout(const Duration(seconds: 3));
+          req.followRedirects = false;
+          final res = await req.close().timeout(const Duration(seconds: 3));
+          if (res.statusCode == HttpStatus.ok) {
+            final bytes = <int>[];
+            await for (final chunk in res) {
+              bytes.addAll(chunk);
+              if (bytes.length > 4096) break;
+            }
+            final body = utf8.decode(bytes);
+            final match = RegExp(
+              r'^loc=([A-Za-z]{2})\s*$',
+              multiLine: true,
+            ).firstMatch(body);
+            final code = match?.group(1)?.toUpperCase();
+            if (code != null && code != 'XX') return code;
+          }
+        } catch (_) {}
+      }
+      return null;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
   /// [uri] 应经过的代理（静态配置）；null 表示直连。
   /// 自动配置（PAC / 自动检测）无法同步求值，见 [endpointForAsync]。
   ProxyEndpoint? endpointFor(Uri uri) {

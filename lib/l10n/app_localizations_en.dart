@@ -555,6 +555,38 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get playbackErrorRegionBlocked =>
+      'Your network exits in mainland China, where Spotify doesn\'t work. Switch to an overseas node and try again';
+
+  @override
+  String get regionCheckSectionTitle => 'Network region check';
+
+  @override
+  String get regionCheckSectionSubtitle =>
+      'Confirm where your network exits before signing in or playing; mainland China stops the list';
+
+  @override
+  String get regionCheckEnabled => 'Enable region check';
+
+  @override
+  String get regionCheckEnabledHint =>
+      'When off, no check runs at all and neither sign-in nor playback is blocked';
+
+  @override
+  String get regionCheckOnNetworkChange => 'Re-check when the network changes';
+
+  @override
+  String get regionCheckOnNetworkChangeHint =>
+      'Detect again after switching Wi-Fi or proxy; when off, the last result is reused until launch';
+
+  @override
+  String get regionCheckSkipThisRun => 'Skip checks until next launch';
+
+  @override
+  String get regionCheckSkipThisRunHint =>
+      'Applies to this run only; detection resumes on the next launch';
+
+  @override
   String playbackErrorWidevine(String track) {
     return 'Can\'t decrypt \"$track\": Widevine DRM is unavailable on this device';
   }
@@ -624,6 +656,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get lyricsFromNetease => 'Lyrics from NetEase Music';
+
+  @override
+  String get lyricsFromSpotify => 'Lyrics from Spotify';
 
   @override
   String get lyricsImmersive => 'Immersive lyrics';
@@ -1206,7 +1241,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsDefaultRepeatSubtitle =>
-      'Repeat mode used when the app starts, replacing the state from the last session';
+      'Repeat mode applied by default when switching playlists or albums';
 
   @override
   String get settingsRepeatOff => 'No repeat';
@@ -1910,4 +1945,82 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get updatesDetails => 'View update';
+
+  @override
+  String get webLoginRegionChecking => 'Checking network region…';
+
+  @override
+  String get webLoginRegionCheckingHint =>
+      'Confirming where your network exits before the sign-in page loads, so sign-in doesn\'t fail in an unsupported region.';
+
+  @override
+  String get webLoginRegionBlockedTitle =>
+      'Your network exits in mainland China';
+
+  @override
+  String get webLoginRegionBlockedBody =>
+      'Spotify isn\'t available in mainland China, so signing in will likely fail or be restricted. Turn on a proxy, switch to an overseas node, then check again.';
+
+  @override
+  String get webLoginRegionRecheck => 'Check again';
+
+  @override
+  String get webLoginRegionForceSkip => 'Skip anyway';
+
+  @override
+  String get webLoginRegionSkipThisRun => 'Skip checks until next launch';
+
+  @override
+  String get settingsAnimDebugSection => 'Animation debugging (temporary)';
+
+  @override
+  String get settingsAnimDebugFooter =>
+      'Applies to this run only and resets when the app restarts. Use it to find what drops frames: turn items off one by one and see which one makes it smooth.';
+
+  @override
+  String get settingsAnimDebugResetAll => 'Restore all';
+
+  @override
+  String get settingsAnimDebugAllMotion => 'Turn off all transition animations';
+
+  @override
+  String get settingsAnimDebugAllMotionSubtitle =>
+      'Same as the system “remove animations”: UI transitions and the flowing background stop';
+
+  @override
+  String get settingsAnimDebugLyricsLine =>
+      'Turn off lyric line focus animation';
+
+  @override
+  String get settingsAnimDebugLyricsLineSubtitle =>
+      'Scale, blur and opacity changes switch instantly instead of easing';
+
+  @override
+  String get settingsAnimDebugLyricsScroll =>
+      'Turn off lyric line-change scrolling';
+
+  @override
+  String get settingsAnimDebugLyricsScrollSubtitle =>
+      'The list jumps straight to position when the line changes, with no movement transition';
+
+  @override
+  String get settingsAnimDebugLyricsMask => 'Turn off lyric edge fade mask';
+
+  @override
+  String get settingsAnimDebugLyricsMaskSubtitle =>
+      'Removes the full-area offscreen mask used to fade the top and bottom edges';
+
+  @override
+  String get settingsAnimDebugGlass => 'Turn off glass background blur';
+
+  @override
+  String get settingsAnimDebugGlassSubtitle =>
+      'Glass cards and buttons stop blurring what\'s behind them every frame';
+
+  @override
+  String get settingsAnimDebugBackground => 'Turn off flowing background';
+
+  @override
+  String get settingsAnimDebugBackgroundSubtitle =>
+      'The lyrics background stays on a still frame';
 }

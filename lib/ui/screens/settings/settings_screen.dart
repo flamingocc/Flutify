@@ -8,6 +8,7 @@ import 'sections/about_section.dart';
 import 'sections/update_section.dart';
 import 'sections/accent_section.dart';
 import 'sections/appearance_section.dart';
+import 'sections/backup_section.dart';
 import 'sections/connect_section.dart';
 import 'sections/glass_section.dart';
 import 'sections/language_section.dart';
@@ -16,6 +17,7 @@ import 'sections/motion_section.dart';
 import 'sections/network_section.dart';
 import 'sections/playback_section.dart';
 import 'sections/privacy_section.dart';
+import 'sections/region_check_section.dart';
 import 'sections/startup_section.dart';
 import 'sections/storage_section.dart';
 import 'sections/taskbar_lyrics_section.dart';
@@ -34,7 +36,7 @@ List<Widget> _accountCards(BuildContext context) => [
     ];
 
 /// 设置页（单列顺序）：账号 → 播放 → 歌词 → 外观 → 强调色 → 液态玻璃 → 文字与形状 → 动效
-/// → 语言 → Spotify Connect → 网络 → 存储 → 隐私 → 启动 → 关于。
+/// → 动画调试（临时）→ 语言 → Spotify Connect → 网络 → 存储 → 隐私 → 启动 → 关于。
 ///
 /// 所有设置项修改后即时生效、自动保存，无需「保存」按钮。按窗口形态分两套布局：
 /// - 移动端：iOS「设置」式单列分组，顶部 AppBar 带返回；
@@ -66,6 +68,8 @@ const List<Widget> _singleColumn = [
   LanguageSection(),
   ConnectSection(),
   NetworkSection(),
+  RegionCheckSection(),
+  BackupSection(),
   StorageSection(),
   PrivacySection(),
   StartupSection(),
@@ -137,6 +141,7 @@ class _DesktopSettings extends StatelessWidget {
                           const TaskbarLyricsSection(),
                           const LanguageSection(),
                           const NetworkSection(),
+                          const RegionCheckSection(),
                           const StartupSection(),
                           const UpdateSection(),
                           const AboutSection(),
@@ -152,6 +157,7 @@ class _DesktopSettings extends StatelessWidget {
                           AccentSection(),
                           GlassSection(),
                           ConnectSection(),
+                          BackupSection(),
                           StorageSection(),
                           PrivacySection(),
                         ],

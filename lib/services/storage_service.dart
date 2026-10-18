@@ -43,6 +43,7 @@ class StorageService {
   ];
   static const String _keyDisplayName = 'sp_display_name';
   static const String _keyAvatarUrl = 'sp_avatar_url';
+  static const String _keyEmail = 'sp_email';
 
   static const String _keyRecentSearches = 'sp_recent_searches';
   static const String _keyVolume = 'sp_volume';
@@ -68,6 +69,9 @@ class StorageService {
 
   /// 用户在本机创建 / 保存的歌单（不随账号同步；远端 rootlist 歌单缓存在 [keyLibraryPlaylists]）。
   static const String keyLibraryLocalPlaylists = 'lib_playlists_local';
+
+  /// 歌单备份落盘键（各备份账号及已落盘的收藏曲目 / 歌单快照）。
+  static const String keyPlaylistBackups = 'backup_accounts_v1';
   static const String _keyLibraryAccount = 'lib_account'; // 媒体库缓存所属账号
   static const String _keyLibrarySchema = 'lib_schema'; // 缓存结构版本（旧版含示例数据）
 
@@ -320,6 +324,9 @@ class StorageService {
   Future<bool> setAvatarUrl(String value) =>
       _prefs.setString(_keyAvatarUrl, value);
 
+  String get email => _prefs.getString(_keyEmail) ?? '';
+  Future<bool> setEmail(String value) => _prefs.setString(_keyEmail, value);
+
   /// 是否已登录：桌面版会话且持有 refresh_token。
   bool get isLoggedIn =>
       _prefs.getString(_keyAuthMethod) == _desktopSession &&
@@ -331,6 +338,7 @@ class StorageService {
       _keyAuthMethod,
       _keyDisplayName,
       _keyAvatarUrl,
+      _keyEmail,
       _keyRefreshToken,
       _keyUsername,
       _keyAccessToken,

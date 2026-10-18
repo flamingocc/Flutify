@@ -550,8 +550,10 @@ class _AndroidPlayerSceneState extends State<AndroidPlayerScene>
                                           : null,
                                       child: IgnorePointer(
                                         ignoring:
-                                            widget.lyricsMode ||
-                                            widget.queueMode,
+                                            (widget.lyricsMode ||
+                                                widget.queueMode) &&
+                                            !(widget.controlsOnLeft &&
+                                                landscape),
                                         child: ExcludeSemantics(
                                           excluding: _cardMode,
                                           child: LayoutBuilder(

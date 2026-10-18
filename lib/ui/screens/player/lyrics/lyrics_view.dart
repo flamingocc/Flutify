@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/debug_toggles.dart';
 import '../../../../core/perf_flags.dart';
 import '../../../../core/theme/flutify_tokens.dart';
 import '../../../../l10n/l10n.dart';
@@ -25,6 +26,7 @@ import '../../../widgets/skeleton.dart';
 import 'breathing_dots.dart';
 import 'apple_music_motion.dart';
 import 'lyric_line_view.dart';
+import 'lyrics_source_label.dart';
 
 /// 歌词滚动区。
 ///
@@ -102,6 +104,9 @@ class _LyricsViewState extends State<LyricsView>
   static const Duration _scrollDuration = Duration(milliseconds: 560);
   static const Curve _scrollCurve = Cubic(0.22, 1.0, 0.36, 1.0);
 
+  /// 「歌词来源」小字字号。
+  static const double _sourceLabelFontSize = 12;
+
   /// 歌词区可视高度（由 LayoutBuilder 写入），用于定位当前行。
   double _viewportHeight = 0;
   double _viewportWidth = 0;
@@ -128,6 +133,10 @@ class _LyricsViewState extends State<LyricsView>
   int _loadRevision = 0;
   List<GlobalKey> _lineKeys = const [];
   final GlobalKey _introKey = GlobalKey();
+  final GlobalKey _sourceKey = GlobalKey();
+
+  GlobalKey _rowKey(int i) =>
+      i < 0 ? _introKey : (i < _lineKeys.length ? _lineKeys[i] : _sourceKey);
 
   /// 每行是否为空行（间奏占位：空串或 ♪）。
   List<bool> _blank = const [];
@@ -163,8 +172,8 @@ class _LyricsViewState extends State<LyricsView>
       AppleMusicMotion.remainingMove(i - _moveFocus, _move.value * 813);
 
   Map<int, double> _captureRows() => {
-    for (var i = -1; i < _lineKeys.length; i++)
-      if (_boxOf(i < 0 ? _introKey : _lineKeys[i]) case final box?)
+    for (var i = -1; i <= _lineKeys.length; i++)
+      if (_boxOf(_rowKey(i)) case final box?)
         i: box.localToGlobal(Offset.zero).dy + _moveOffset(i),
   };
 
@@ -595,6 +604,11 @@ class _LyricsViewState extends State<LyricsView>
   void _scrollToActive({bool animate = true, Map<int, double>? before}) {
     if (!mounted) return;
     if (widget.appleMusicStyle && !_isSynced) return;
+    // 设置里「动画调试」可临时关掉切行滚动动画（直接跳到位置），用于定位掉帧
+    final smooth =
+        animate &&
+        !context.reduceMotion &&
+        !DebugToggles.instance.isOff(DebugToggle.lyricsScroll);
     if (widget.appleMusicStyle &&
         (!_interactionActive ||
             _touches.isNotEmpty ||
@@ -615,8 +629,8 @@ class _LyricsViewState extends State<LyricsView>
       final snapshots = before ?? _captureRows();
       _moveFocus = _focusEntryFor(_currentGap);
       final offsets = <int, double>{};
-      for (var i = -1; i < _lineKeys.length; i++) {
-        final box = _boxOf(i < 0 ? _introKey : _lineKeys[i]);
+      for (var i = -1; i <= _lineKeys.length; i++) {
+        final box = _boxOf(_rowKey(i));
         if (box != null && snapshots.containsKey(i)) {
           offsets[i] =
               snapshots[i]! - (box.localToGlobal(Offset.zero).dy - delta);
@@ -625,7 +639,7 @@ class _LyricsViewState extends State<LyricsView>
       _moveOffsets = offsets;
       position.jumpTo(bounded);
       _pendingAnchor = false;
-      if (animate && !context.reduceMotion) {
+      if (smooth) {
         _move.forward(from: 0);
       } else {
         _move.value = 1;
@@ -633,7 +647,7 @@ class _LyricsViewState extends State<LyricsView>
       return;
     }
     if ((target - position.pixels).abs() < 0.5) return;
-    if (animate && !context.reduceMotion) {
+    if (smooth) {
       position.animateTo(
         target,
         duration: _scrollDuration,
@@ -868,7 +882,9 @@ class _LyricsViewState extends State<LyricsView>
       child: NotificationListener<ScrollNotification>(
         onNotification: _onScrollNotification,
         child: _EdgeMask(
-          enabled: !PerfFlags.noLyricsMask,
+          enabled:
+              !PerfFlags.noLyricsMask &&
+              !DebugToggles.of(context).isOff(DebugToggle.lyricsMask),
           // 上下边缘柔和淡出，歌词像从玻璃下方浮现
           shaderCallback: (rect) => widget.appleMusicStyle
               ? _appleEdgeFade(rect)
@@ -976,58 +992,62 @@ class _LyricsViewState extends State<LyricsView>
                             ),
                           ),
                         ),
-                    if (lyrics.provider == LyricsProvider.lrclib ||
-                        (_translationIsCurrent && _translation.fromLrclib))
-                      Padding(
-                        padding: const EdgeInsets.only(top: 28),
-                        child: Text(
-                          context.l10n.lyricsFromLrclib,
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                      KeyedSubtree(
+                        key: _sourceKey,
+                        child: _movingRow(
+                          lyrics.lines.length,
+                          _sourceLabel(
+                            context,
+                            lyrics.provider,
+                            fontSize: fontSize,
+                            centered: centered,
                           ),
                         ),
                       ),
-                    if (lyrics.provider == LyricsProvider.qqMusic ||
-                        lyrics.provider == LyricsProvider.netease)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 28),
-                        child: Text(
-                          lyrics.provider == LyricsProvider.qqMusic
-                              ? context.l10n.lyricsFromQqMusic
-                              : context.l10n.lyricsFromNetease,
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    if (_translationIsCurrent &&
-                        lyrics.provider != LyricsProvider.qqMusic &&
-                        lyrics.provider != LyricsProvider.netease &&
-                        (_translation.fromNetease ||
-                            _translation.fromQqMusic))
-                      Padding(
-                        padding: const EdgeInsets.only(top: 28),
-                        child: Text(
-                          _translation.fromQqMusic
-                              ? context.l10n.lyricsTranslationFromQqMusic
-                              : context.l10n.lyricsTranslationFromNetease,
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+                    ],
+                  ),
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// 歌词来源小字：原文与译词同源（如都来自 QQ 音乐）时合并成一段，异源时拆成两段。
+  ///
+  /// 它与歌词行一样挂在 [_movingRow] 下并参与 [_captureRows] 位移采样，切行滚动时的
+  /// 起点、曲线与级联延迟和歌词行完全一致。
+  Widget _sourceLabel(
+    BuildContext context,
+    LyricsProvider provider, {
+    required double fontSize,
+    bool centered = false,
+  }) {
+    final source = _translationIsCurrent ? _translation.source : null;
+    final lines = [
+      LyricsSourceLabel.textOf(context, provider),
+      if (source != null && source != provider)
+        LyricsSourceLabel.translationOf(context, source),
+    ].whereType<String>().toList();
+    final progress =
+        _translationIsCurrent && (_visibleTranslations?.isNotEmpty ?? false)
+        ? _translationReveal.value.clamp(0.0, 1.0)
+        : 0.0;
+    return Transform.translate(
+      offset: Offset(0, -fontSize * 0.3 * progress),
+      child: LyricsSourceLabel(
+        lines: lines,
+        fontSize: _sourceLabelFontSize,
+        duration: context.motion(
+          widget.appleMusicStyle
+              ? AppleMusicMotion.moveDuration
+              : _scrollDuration,
+        ),
+        curve: widget.appleMusicStyle
+            ? AppleMusicMotion.moveCurve
+            : _scrollCurve,
+        centered: centered,
       ),
     );
   }

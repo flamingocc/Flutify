@@ -13,6 +13,7 @@ import '../models/playback_session.dart';
 import '../models/playback_state.dart';
 import '../models/track.dart';
 import '../services/audio/audio_engine.dart';
+import '../services/playback/playback_region_gate.dart';
 import '../services/playback_session_store.dart';
 import '../services/network/network_failure.dart';
 import '../services/protocol/track_audio_loader.dart';
@@ -59,13 +60,21 @@ class PlaybackProvider extends ChangeNotifier {
   /// 上次播放会话的存储；为空时不还原也不保存（测试默认）。
   final PlaybackSessionStore? sessionStore;
 
-  /// 启动时使用的循环方式（设置里的「默认循环方式」）；null 时沿用上次会话 / 不循环。
-  final SpotifyRepeatMode? defaultRepeatMode;
+  /// 起播前的网络出口地区门控；为空（测试 / 未注入）时不做任何检测。
+  final PlaybackRegionGate? regionGate;
+
+  /// 设置里的「默认循环方式」（切换歌单等播放列表时默认生效）；null 表示不干预。
+  /// 见 [defaultRepeatMode]。
+  SpotifyRepeatMode? _defaultRepeatMode;
   final Random _random;
 
   /// 远程播放接管（由 main.dart 接上 Spotify Connect）：点歌时先问它，返回 true 表示已交给远程设备播放，
   /// 本机不再加载；[start] 为 null 表示从头播放整个上下文。为空或返回 false 时照常在本机播放。
   RemotePlayHandler? remotePlay;
+
+  /// 本机修改随机 / 循环时与服务端同步的钩子：等服务端确认后再在前端应用，彻底消除抖动。
+  Future<bool> Function({bool? shuffle, SpotifyRepeatMode? repeat})?
+  syncOptionsBeforeApply;
 
   /// 还原会话后、或尚未加载音频时拖动进度条：下次加载这首歌时从这里开始播放。
   Duration? _resumeAt;
@@ -80,14 +89,33 @@ class PlaybackProvider extends ChangeNotifier {
   /// 协议加载代次号：连续切歌时丢弃过期的加载结果，避免串音。
   int _loadGeneration = 0;
   int _playIntent = 0;
-  int _networkRetries = 0;
-  Timer? _retryTimer;
+
+  /// 重试的预算按「一次播放尝试」算，不是按曲目算：
+  /// 一次 [playTrack] 或一次自动跳过给 [PlaybackRetry.limit] 次重试
+  /// （[_handleLoadFailure] 里接着重放也算在同一次尝试里），
+  /// 用光后 [_playAudio] 立刻交出失败，不会在每个后台重试上都干等一轮退避。
+  bool _retryingTrack = false;
+  int _retriesUsed = 0;
+
+  /// 本首歌的网络类失败已经重放过一次（[_retryTrack]）。
+  ///
+  /// 重放会把预算还回去，好让它和第一次一样有完整的退避机会；这一位就是防止
+  /// 「还回去」变成「用不完」：重放再失败时不再接着重放，交给用户决定
+  /// （错误提示条上的「重试」）。
+  bool _transientRetried = false;
+
+  /// [PlaybackRetry.limit] 次重试用完；剩下的失败不再等退避，直接交给调用方处理。
+  bool get _budgetExhausted => _retriesUsed >= PlaybackRetry.limit;
+
+  /// 记一次重试。调用方必须已经用 [_budgetExhausted] 确认还有预算。
+  int _takeRetry() => ++_retriesUsed;
+
+  /// 退避等待的握手：切歌 / 登出 / 用户取消时由 [_cancelRetry] 完成，
+  /// 等待方据此提前收手，不再空等到点。
   Completer<void>? _retryWait;
   final ValueNotifier<PlaybackRetry?> retryNotifier = ValueNotifier(null);
 
   void _cancelRetry() {
-    _retryTimer?.cancel();
-    _retryTimer = null;
     final wait = _retryWait;
     _retryWait = null;
     if (wait != null && !wait.isCompleted) wait.complete();
@@ -95,19 +123,25 @@ class PlaybackProvider extends ChangeNotifier {
   }
 
   Future<bool> _waitForRetry(Object error, int generation) async {
-    if (!isConnectionFailure(error) || _networkRetries >= PlaybackRetry.limit) {
+    if (!isConnectionFailure(error) || _budgetExhausted) {
       return false;
     }
-    final attempt = ++_networkRetries;
+    final attempt = _takeRetry();
     final delay = Duration(seconds: attempt);
     final wait = Completer<void>();
     _retryWait = wait;
     retryNotifier.value = PlaybackRetry(attempt, delay);
-    _retryTimer = Timer(delay, () => wait.complete());
+    final timer = Timer(delay, () {
+      if (!wait.isCompleted) wait.complete();
+    });
     await wait.future;
-    if (generation != _loadGeneration) return false;
+    timer.cancel();
+    // 注意顺序：先认 [_retryWait] 再认代次。用户取消 / 切歌 / 登出时
+    // [_cancelRetry] 已经把 [_retryWait] 清空，这里立刻收手，不再空等到点。
+    if (!identical(_retryWait, wait)) return false;
     _retryWait = null;
-    _retryTimer = null;
+    // 代次对不上说明期间切了歌：这次加载的结果已经作废，不重试。
+    if (generation != _loadGeneration) return false;
     retryNotifier.value = PlaybackRetry(attempt, delay, waiting: false);
     return true;
   }
@@ -230,7 +264,8 @@ class PlaybackProvider extends ChangeNotifier {
     Random? random,
     this.audioLoader,
     this.sessionStore,
-    this.defaultRepeatMode,
+    this.regionGate,
+    SpotifyRepeatMode? defaultRepeatMode,
   }) : _audio = audio,
        _random = random ?? Random(),
        _pauseAfterFailures = _storage.pauseAfterFailures,
@@ -240,8 +275,9 @@ class PlaybackProvider extends ChangeNotifier {
        _fadeSeconds = _storage.fadeSeconds.clamp(0, maxFadeSeconds) {
     _initAudioListeners();
     _applyVolume();
-    final repeat = defaultRepeatMode;
-    if (repeat != null) _repeatMode = repeat;
+    _defaultRepeatMode = defaultRepeatMode;
+    if (defaultRepeatMode != null) _repeatMode = defaultRepeatMode;
+    regionGate?.onNetworkChanged = _onRegionNetworkChanged;
     // 有上次会话时还原为「暂停在上次的位置」；否则没有当前曲目，播放器条隐藏，直到用户点播一首歌
     _restoreSession();
   }
@@ -272,6 +308,35 @@ class PlaybackProvider extends ChangeNotifier {
   Duration get duration => _duration;
   bool get shuffle => _shuffle;
   SpotifyRepeatMode get repeatMode => _repeatMode;
+
+  /// 设置里的「默认循环方式」；null 表示不干预，循环方式由用户当场点的（或上次会话）决定。
+  SpotifyRepeatMode? get defaultRepeatMode => _defaultRepeatMode;
+
+  /// 设置页改动「默认循环方式」时同步进来。
+  ///
+  /// 它同时是当前循环方式：否则设置里选完要等下次启动才生效，
+  /// 用户在设置页看到的和播放器实际用的会不一致。
+  void updateDefaultRepeatMode(SpotifyRepeatMode? mode) {
+    if (mode == _defaultRepeatMode) return;
+    _defaultRepeatMode = mode;
+    if (mode == null) return;
+    setRepeatMode(mode);
+  }
+
+  void _applyDefaultRepeatMode() {
+    final mode = _defaultRepeatMode;
+    if (mode != null) {
+      setRepeatMode(mode);
+    }
+  }
+
+  bool _isSwitchingContext(PlaybackContext? next) {
+    final target = next ?? PlaybackContext.none;
+    if (_currentTrack == null) return true;
+    if (target.uri.isEmpty || _context.uri.isEmpty) return true;
+    return target.uri != _context.uri;
+  }
+
   double get volume => _volume;
 
   /// 连续 [failureLimit] 首无法播放时自动暂停，而不是继续跳过（设置页「播放」分组，持久化）。
@@ -365,7 +430,8 @@ class PlaybackProvider extends ChangeNotifier {
       final playing = state.playing && ps != ProcessingState.completed;
       final buffering =
           ps == ProcessingState.loading || ps == ProcessingState.buffering;
-      final ended = ps == ProcessingState.completed &&
+      final ended =
+          ps == ProcessingState.completed &&
           _lastProcessingState != ProcessingState.completed;
       _lastProcessingState = ps;
 
@@ -373,7 +439,8 @@ class PlaybackProvider extends ChangeNotifier {
       // Loading the next source (and repeat-one's seek) can take arbitrarily long.
       final wasStarting = _isStartingPlayback;
       if (ended) {
-        _isStartingPlayback = !_stopAfterCurrent &&
+        _isStartingPlayback =
+            !_stopAfterCurrent &&
             (_repeatMode == SpotifyRepeatMode.track || canSkipNext);
       } else if (playing &&
           _loadedTrackId != null &&
@@ -497,6 +564,16 @@ class PlaybackProvider extends ChangeNotifier {
     final intent = ++_playIntent;
     _isStartingPlayback = !deferLoad;
     if (deferLoad) _isPlaying = false;
+    if (!isRetry) {
+      // 新的手动播放尝试（含自动跳过的下一首）：重试预算重新计
+      _retryingTrack = false;
+      _retriesUsed = 0;
+      _transientRetried = false;
+    } else if (!_retryingTrack) {
+      // 自动跳过的下一首是「换一首接着放」，不是同曲重试：预算重新计
+      _retriesUsed = 0;
+      _transientRetried = false;
+    }
     _currentAudio = null;
     _nextCycleOrder = null;
     _currentTrack = track;
@@ -535,7 +612,6 @@ class PlaybackProvider extends ChangeNotifier {
   Future<void> _playAudio(SpotifyTrack track, {Object? connectionError}) async {
     final generation = ++_loadGeneration;
     _cancelRetry();
-    if (connectionError == null) _networkRetries = 0;
     _loadedTrackId = null;
     _currentAudio = null;
     _currentDownloadReady = false;
@@ -562,6 +638,10 @@ class PlaybackProvider extends ChangeNotifier {
         await _handleLoadFailure(track, _asPlaybackFailure(connectionError));
         return;
       }
+    }
+    if (regionGate != null) {
+      final blocked = await _blockOnRegion(track, generation: generation);
+      if (blocked || generation != _loadGeneration) return;
     }
     while (generation == _loadGeneration) {
       try {
@@ -629,6 +709,10 @@ class PlaybackProvider extends ChangeNotifier {
         if (generation != _loadGeneration) return;
         if (startPosition != null) positionNotifier.value = startPosition;
         _consecutiveSkips = 0;
+        // 这次尝试成功了：重试预算还回去，用户在下一首上仍有完整的重试机会
+        _retryingTrack = false;
+        _retriesUsed = 0;
+        _transientRetried = false;
         // 等整首下载完再预取；暂停不应丢掉下载完成信号，切歌则丢弃旧结果。
         // 在 ready 通知前登记，监听器同步切歌时的新状态不能被旧曲目覆盖。
         _currentAudio = audio;
@@ -668,35 +752,74 @@ class PlaybackProvider extends ChangeNotifier {
           error,
         );
 
+  /// 「这首歌播不了」——URL 过期 / 区域限制 / 已下架。
+  ///
+  /// 这类失败重试多少次都一样，只能跳下一首。
+  static bool _isUnsuitableTrack(TrackPlaybackException failure) =>
+      failure.kind == TrackPlaybackFailure.unavailable;
+
+  /// 「这一下没加载上」——断网、超时、对端半路关连接。
+  ///
+  /// 和 [TrackPlaybackFailure.kind] 分开看：后者由状态码推导，会把传输层的抖动
+  /// 也归进 `network`，而那未必代表这首歌有问题。
+  static bool _isTransientFailure(TrackPlaybackException failure) =>
+      isConnectionFailure(failure);
+
   /// 处理加载失败：暴露错误状态；「不可播放」类自动跳到下一首（有上限）。
   ///
   /// 上限有两层：
   /// - 开启 [pauseAfterFailures]（默认）：连续第 [failureLimit] 首仍不可播放时停下，标记 autoPaused；
   /// - 始终：跳过次数不超过一轮上下文长度，避免整个歌单都不可播时死循环。
+  ///
+  /// 网络类失败不算「这首歌播不了」，不参与这两层上限：先自动重放一次当前曲目，
+  /// 重放仍失败则停在当前曲目并提示用户点「重试」。
   Future<void> _handleLoadFailure(
     SpotifyTrack track,
     TrackPlaybackException failure,
   ) async {
-    final failures = _consecutiveSkips + 1;
+    final unsuitable = _isUnsuitableTrack(failure);
+    final failures = unsuitable ? _consecutiveSkips + 1 : _consecutiveSkips;
     final hitLimit =
-        failure.shouldSkip && _pauseAfterFailures && failures >= failureLimit;
+        unsuitable && _pauseAfterFailures && failures >= failureLimit;
+    // 网络类失败可以再重放一次：退避重放已经把预算用光，这里把预算还回去，
+    // 让它和第一次一样有完整的 [PlaybackRetry.limit] 次机会。
+    // [_transientRetried] 保证这一下只做一次——重放再失败就报错，不再自己循环下去，
+    // 否则用户永远只能看着「正在重试」，听不到也点不动。
+    final retryable =
+        _isTransientFailure(failure) &&
+        !unsuitable &&
+        !_transientRetried &&
+        !_retryingTrack;
     final canSkip =
-        failure.shouldSkip &&
         !hitLimit &&
+        unsuitable &&
         _consecutiveSkips < max(max(_order.length, _userQueue.length + 1), 1) &&
         (_userQueue.isNotEmpty ||
             _orderPos + 1 < _order.length ||
             _repeatMode == SpotifyRepeatMode.context);
-    _playbackError = PlaybackError(
+    final error = PlaybackError(
       serial: ++_errorSerial,
       track: track,
       exception: failure,
       skipped: canSkip,
       autoPaused: hitLimit,
       consecutiveFailures: failures,
+      retryable: retryable,
     );
+    // 还要退避重放这首歌：先不报错。后台切歌时断流很平常，重来一次往往就成了，
+    // 每抖一下都给用户弹一条「加载失败」是噪音；等重放也失败再报。
+    if (retryable) {
+      _setLoading(false);
+      await _retryTrack();
+      return;
+    }
+    _playbackError = error;
     _errorController.add(_playbackError!);
     if (!canSkip) {
+      // 重放也没成功：没打算在这首歌上再自动重来，把「这一下没加载上」的预算
+      // 留给用户下一次点「重试」（那是一次新的手动播放尝试，见 [_startTrack]）。
+      _retriesUsed = 0;
+      _transientRetried = false;
       _isStartingPlayback = false;
       _isPlaying = false;
       _isBuffering = false;
@@ -846,6 +969,9 @@ class PlaybackProvider extends ChangeNotifier {
     PlaybackContext? context,
   }) async {
     final intent = ++_playIntent;
+    if (_isSwitchingContext(context)) {
+      _applyDefaultRepeatMode();
+    }
     final remote = remotePlay;
     if (remote != null &&
         await remote(
@@ -855,7 +981,12 @@ class PlaybackProvider extends ChangeNotifier {
         ))
       return;
     if (intent != _playIntent) return;
-    await _playLocal(track, contextQueue: contextQueue, context: context);
+    await _playLocal(
+      track,
+      contextQueue: contextQueue,
+      context: context,
+      applyDefaultRepeat: false,
+    );
   }
 
   /// 在本机播放，不经 [remotePlay]：Connect 播放端收到远程命令时用，避免又转发回远程。
@@ -884,8 +1015,12 @@ class PlaybackProvider extends ChangeNotifier {
     PlaybackContext? context,
     Duration? startAt,
     bool deferLoad = false,
+    bool applyDefaultRepeat = true,
   }) async {
     _receiverQueue = null;
+    if (applyDefaultRepeat && _isSwitchingContext(context)) {
+      _applyDefaultRepeatMode();
+    }
     var tracks = (contextQueue == null || contextQueue.isEmpty)
         ? [track]
         : List.of(contextQueue);
@@ -900,6 +1035,62 @@ class PlaybackProvider extends ChangeNotifier {
     await _startTrack(track, startAt: startAt, deferLoad: deferLoad);
   }
 
+  void _onRegionNetworkChanged() {
+    final track = _currentTrack;
+    if (track == null || !isPlaybackActive) return;
+    unawaited(_recheckActivePlaybackRegion(track));
+  }
+
+  Future<void> _recheckActivePlaybackRegion(SpotifyTrack track) async {
+    final gate = regionGate;
+    if (gate == null) return;
+    final block = await gate.ensureAllowed();
+    if (block == null) return;
+    if (_currentTrack?.id == track.id) {
+      final savedPos = position;
+      await pause();
+      _loadedTrackId = null;
+      _resumeAt = savedPos;
+      await _blockOnRegion(track);
+    }
+  }
+
+  /// 起播前及网络变动时的出口地区门控：检测到中国大陆就停在这首歌上并提示，不加载任何音频。
+  ///
+  /// 只拦本机播放，不拦后台预取（预取失败本来就不出声）。
+  Future<bool> _blockOnRegion(SpotifyTrack track, {int? generation}) async {
+    final gate = regionGate;
+    if (gate == null || track.id.isEmpty) return false;
+    PlaybackRegionBlock? block;
+    try {
+      block = await gate.ensureAllowed();
+    } catch (_) {
+      // 检测本身出问题按「未知」处理，不因为探测失败就不让听歌
+      return false;
+    }
+    if (block == null) return false;
+    if (generation != null && generation != _loadGeneration) return true;
+    _playbackError = PlaybackError(
+      serial: ++_errorSerial,
+      track: track,
+      exception: TrackPlaybackException(
+        TrackPlaybackFailure.regionBlocked,
+        '当前网络出口在中国大陆，Spotify 无法播放',
+      ),
+      skipped: false,
+      autoPaused: false,
+      consecutiveFailures: 1,
+      retryable: false,
+    );
+    _errorController.add(_playbackError!);
+    _isStartingPlayback = false;
+    _isPlaying = false;
+    _isBuffering = false;
+    _setLoading(false);
+    notifyListeners();
+    return true;
+  }
+
   /// 接收服务端的实际顺序，不再在本机洗牌。匹配的完整上下文只补充
   /// 未下发的尾部；服务端改序或启用随机时绝不拼接原歌单顺序。
   Future<void> playReceiverQueue(
@@ -908,11 +1099,21 @@ class PlaybackProvider extends ChangeNotifier {
     required bool paused,
   }) async {
     if (currentAndNext.isEmpty) return;
+    final hadSeed = _receiverQueue != null;
+    final prevContextUri = _context.uri;
     final queue = _receiverOrder(currentAndNext);
+    final switchingContext =
+        hadSeed ||
+        prevContextUri.isEmpty ||
+        queue.context.uri.isEmpty ||
+        queue.context.uri != prevContextUri;
     _contextTracks = queue.tracks;
     _context = queue.context;
     _order = List.generate(_contextTracks.length, (i) => i);
     _orderPos = queue.index;
+    if (switchingContext) {
+      _applyDefaultRepeatMode();
+    }
     await _startTrack(
       currentAndNext.first,
       startAt: startAt,
@@ -1021,13 +1222,19 @@ class PlaybackProvider extends ChangeNotifier {
     PlaybackContext context,
   ) async {
     if (tracks.isEmpty) return;
-    // 远程设备按它自己的随机 / 循环设置从头播放
+    // 切换歌单 / 从头播放上下文时应用设置的默认循环方式
+    _applyDefaultRepeatMode();
     final intent = ++_playIntent;
     final remote = remotePlay;
     if (remote != null && await remote(context, tracks, null)) return;
     if (intent != _playIntent) return;
     final start = _shuffle ? _random.nextInt(tracks.length) : 0;
-    await _playLocal(tracks[start], contextQueue: tracks, context: context);
+    await _playLocal(
+      tracks[start],
+      contextQueue: tracks,
+      context: context,
+      applyDefaultRepeat: false,
+    );
   }
 
   Future<void> togglePlayPause() async {
@@ -1042,6 +1249,9 @@ class PlaybackProvider extends ChangeNotifier {
       await pause();
     } else if (_loadedTrackId != track.id) {
       // 还没加载过 / 上次加载失败（重试）
+      _retryingTrack = false;
+      _retriesUsed = 0;
+      _transientRetried = false;
       _playbackError = null;
       await _playAudio(track);
     } else {
@@ -1049,8 +1259,40 @@ class PlaybackProvider extends ChangeNotifier {
     }
   }
 
+  /// 只跳过、不换曲：拿当前曲目重放。
+  ///
+  /// 用在网络类失败上——加载这一首时链路断了，同一首重来一次往往就成了。
+  /// 重试预算按曲目连续计：重置预算，好让这次重放拿到和第一次同样的
+  /// [PlaybackRetry.limit] 次机会（[_waitForRetry] 随后按预算逐次退避）。
+  ///
+  /// 再失败就只是又走一遍 [_handleLoadFailure]：那时 [_transientRetried] 已经成立，
+  /// 不会再重放第三次，而是报错收手——所以不必在这里判断重放有没有成。
+  Future<void> _retryTrack() async {
+    _retriesUsed = 0;
+    _transientRetried = true;
+    // 闸门要一直立到重放彻底结束：重放失败时 [_handleLoadFailure] 会在
+    // `_startTrack` 内部同步再跑一遍，那时 [_transientRetried] 已经为真，
+    // 唯一拦住「再来一次重放」的就是这一位。等它返回之后再放下。
+    _retryingTrack = true;
+    try {
+      await _startTrack(_currentTrack!, isRetry: true);
+    } finally {
+      _retryingTrack = false;
+      // 「连续跳过」计数还原：网络抖动不算「这首歌播不了」，不该攒进那两重上限
+      _consecutiveSkips = (_consecutiveSkips - 1).clamp(0, 1 << 30);
+    }
+  }
+
   /// 下一首。[isAutoSkip] 表示由「不可播放自动跳过」触发（不重置连续跳过计数）。
   Future<void> nextTrack({bool isAutoSkip = false}) async {
+    if (_repeatMode == SpotifyRepeatMode.track) {
+      // 单曲循环：同曲重来，同样受「连续跳过」限流（重试限流在 [_playAudio] 里按曲目算）
+      final track = _currentTrack;
+      if (track != null) {
+        await _startTrack(track, isRetry: isAutoSkip);
+        return;
+      }
+    }
     if (_userQueue.isNotEmpty) {
       await _startTrack(_userQueue.removeAt(0).track, isRetry: isAutoSkip);
       return;
@@ -1102,8 +1344,14 @@ class PlaybackProvider extends ChangeNotifier {
     await _audio.seek(clamped);
   }
 
-  void toggleShuffle() {
-    _shuffle = !_shuffle;
+  Future<void> toggleShuffle() async {
+    final next = !_shuffle;
+    final sync = syncOptionsBeforeApply;
+    if (sync != null) {
+      final ok = await sync(shuffle: next);
+      if (!ok) return;
+    }
+    _shuffle = next;
     if (_order.isNotEmpty) _rebuildOrder(_order[_orderPos]);
     _scheduleSave();
     _prefetchNext();
@@ -1112,7 +1360,13 @@ class PlaybackProvider extends ChangeNotifier {
 
   /// 直接设定随机（Connect 远程命令用）；与当前相同时不重排。
   void setShuffle(bool value) {
-    if (value != _shuffle) toggleShuffle();
+    if (value != _shuffle) {
+      _shuffle = value;
+      if (_order.isNotEmpty) _rebuildOrder(_order[_orderPos]);
+      _scheduleSave();
+      _prefetchNext();
+      notifyListeners();
+    }
   }
 
   /// 直接设定循环方式（Connect 远程命令用）。
@@ -1125,12 +1379,18 @@ class PlaybackProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void cycleRepeatMode() {
-    setRepeatMode(switch (_repeatMode) {
+  Future<void> cycleRepeatMode() async {
+    final next = switch (_repeatMode) {
       SpotifyRepeatMode.off => SpotifyRepeatMode.context,
       SpotifyRepeatMode.context => SpotifyRepeatMode.track,
       SpotifyRepeatMode.track => SpotifyRepeatMode.off,
-    });
+    };
+    final sync = syncOptionsBeforeApply;
+    if (sync != null) {
+      final ok = await sync(repeat: next);
+      if (!ok) return;
+    }
+    setRepeatMode(next);
   }
 
   // ---------------------------------------------------------------------------
@@ -1147,7 +1407,7 @@ class PlaybackProvider extends ChangeNotifier {
     _context = session.context;
     _shuffle = session.shuffle;
     // 设置里指定了默认循环方式时以它为准，否则沿用上次会话
-    _repeatMode = defaultRepeatMode ?? session.repeatMode;
+    _repeatMode = _defaultRepeatMode ?? session.repeatMode;
     // 保存的是播放顺序，还原后按自然顺序即为原来的顺序
     _contextTracks = List.of(session.tracks);
     _order = List.generate(_contextTracks.length, (i) => i);
@@ -1382,6 +1642,9 @@ class PlaybackProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (identical(regionGate?.onNetworkChanged, _onRegionNetworkChanged)) {
+      regionGate?.onNetworkChanged = null;
+    }
     ++_loadGeneration;
     _currentAudio = null;
     _cancelRetry();

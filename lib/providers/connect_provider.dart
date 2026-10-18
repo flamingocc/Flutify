@@ -103,6 +103,8 @@ class ConnectProvider extends ChangeNotifier {
     ConnectPlayRequest request, {
     int? seekToMs,
     bool paused = false,
+    bool? repeatingContext,
+    bool? repeatingTrack,
   }) => _withTarget(
     receiverDeviceId!,
     () => _service!.play(
@@ -113,19 +115,36 @@ class ConnectProvider extends ChangeNotifier {
       trackIndex: request.trackIndex,
       seekToMs: seekToMs,
       paused: paused,
+      repeatingContext: repeatingContext,
+      repeatingTrack: repeatingTrack,
       confirm: true,
     ),
   );
 
   /// 本机播放端上改随机 / 循环：发给服务端，其他设备随之更新。
-  Future<void> setReceiverOptions({
-    required bool shuffle,
-    required bool repeatContext,
-    required bool repeatTrack,
+  Future<bool> setReceiverOptions({
+    bool? shuffle,
+    bool? repeatContext,
+    bool? repeatTrack,
   }) async {
-    final id = receiverDeviceId!;
-    await _service!.setShuffle(id, shuffle);
-    await _service.setRepeat(id, context: repeatContext, track: repeatTrack);
+    final id = receiverDeviceId;
+    if (id == null) return false;
+    try {
+      if (shuffle != null) {
+        await _service!.setShuffle(id, shuffle);
+      }
+      if (repeatContext != null || repeatTrack != null) {
+        await _service!.setRepeat(
+          id,
+          context: repeatContext ?? false,
+          track: repeatTrack ?? false,
+        );
+      }
+      return true;
+    } catch (e) {
+      debugPrint('[Connect] 同步接收端选项失败: $e');
+      return false;
+    }
   }
 
   /// 把远程设备上的播放转到本机播放端（同一首、同一进度）。

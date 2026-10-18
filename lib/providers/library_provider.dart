@@ -215,7 +215,18 @@ class LibraryProvider extends ChangeNotifier {
 
   void _rebuildPlaylists() {
     final localIds = _localPlaylists.map((p) => p.id).toSet();
-    _playlists = [..._localPlaylists, ..._remotePlaylists.where((p) => !localIds.contains(p.id))];
+    final localNames = _localPlaylists
+        .map((p) => p.name.trim().toLowerCase())
+        .where((n) => n.isNotEmpty)
+        .toSet();
+    _playlists = [
+      ..._localPlaylists,
+      ..._remotePlaylists.where(
+        (p) =>
+            !localIds.contains(p.id) &&
+            !localNames.contains(p.name.trim().toLowerCase()),
+      ),
+    ];
   }
 
   // ---------------------------------------------------------------------------
@@ -280,6 +291,67 @@ class LibraryProvider extends ChangeNotifier {
     _storage.writeJsonList(StorageService.keyLibraryAlbums, _albums.map((a) => a.toJson()));
     notifyListeners();
     _sync((s) => s.setAlbumSaved(album, saving));
+  }
+
+  /// 合并两张重合的歌单（同 ID 或同名）：保留主歌单的 ID 与封面元数据，曲目按 ID / URI 去重合并。
+  static SpotifyPlaylist mergePlaylists(
+    SpotifyPlaylist base,
+    SpotifyPlaylist incoming,
+  ) {
+    final seen = <String>{};
+    final mergedTracks = <SpotifyTrack>[];
+    for (final t in [...base.tracks, ...incoming.tracks]) {
+      final key = t.id.isNotEmpty ? t.id : t.uri;
+      if (key.isEmpty || seen.add(key)) {
+        mergedTracks.add(t);
+      }
+    }
+    final maxTotal = [
+      mergedTracks.length,
+      base.totalTracks,
+      incoming.totalTracks,
+    ].reduce((a, b) => a > b ? a : b);
+    return base.copyWith(
+      name: base.name.isNotEmpty ? base.name : incoming.name,
+      description: base.description.isNotEmpty
+          ? base.description
+          : incoming.description,
+      images: base.images.isNotEmpty ? base.images : incoming.images,
+      tracks: mergedTracks,
+      totalTracks: mergedTracks.isNotEmpty ? mergedTracks.length : maxTotal,
+    );
+  }
+
+  static bool _isSamePlaylist(SpotifyPlaylist a, SpotifyPlaylist b) {
+    if (a.id.isNotEmpty && b.id.isNotEmpty && a.id == b.id) return true;
+    final nameA = a.name.trim().toLowerCase();
+    final nameB = b.name.trim().toLowerCase();
+    return nameA.isNotEmpty && nameA == nameB;
+  }
+
+  /// 将备份的歌单合并到本机歌单（同 ID 或同名歌单已存在时合并去重曲目，否则插到顶部并落盘）。
+  void upsertLocalPlaylist(SpotifyPlaylist playlist) {
+    final localIdx = _localPlaylists.indexWhere(
+      (p) => _isSamePlaylist(p, playlist),
+    );
+    final remoteMatch = _remotePlaylists
+        .where((p) => _isSamePlaylist(p, playlist))
+        .firstOrNull;
+    if (localIdx >= 0) {
+      var merged = mergePlaylists(_localPlaylists[localIdx], playlist);
+      if (remoteMatch != null) {
+        merged = mergePlaylists(remoteMatch, merged);
+      }
+      _localPlaylists = [..._localPlaylists]..[localIdx] = merged;
+    } else if (remoteMatch != null) {
+      final merged = mergePlaylists(remoteMatch, playlist);
+      _localPlaylists = [merged, ..._localPlaylists];
+    } else {
+      _localPlaylists = [playlist, ..._localPlaylists];
+    }
+    _rebuildPlaylists();
+    _persistPlaylists();
+    notifyListeners();
   }
 
   /// 新建歌单（仅保存在本机），返回创建结果。
@@ -394,8 +466,34 @@ class LibraryProvider extends ChangeNotifier {
     _albums = cacheValid
         ? _storage.readJsonList(StorageService.keyLibraryAlbums).map(SpotifyAlbum.fromJson).toList()
         : const [];
-    _localPlaylists =
-        _storage.readJsonList(StorageService.keyLibraryLocalPlaylists).map(SpotifyPlaylist.fromJson).toList();
+    final rawLocal = _storage
+        .readJsonList(StorageService.keyLibraryLocalPlaylists)
+        .map(SpotifyPlaylist.fromJson)
+        .where((p) => !p.id.endsWith('_liked') && !p.id.startsWith('backup_liked_'))
+        .map((p) {
+          final stripped = _stripLegacyBackupPrefix(p.id);
+          return stripped == p.id
+              ? p
+              : p.copyWith(id: stripped, uri: 'spotify:playlist:$stripped');
+        });
+    final dedupedLocal = <SpotifyPlaylist>[];
+    for (final p in rawLocal) {
+      final idx = dedupedLocal.indexWhere((e) => _isSamePlaylist(e, p));
+      if (idx >= 0) {
+        dedupedLocal[idx] = mergePlaylists(dedupedLocal[idx], p);
+      } else {
+        dedupedLocal.add(p);
+      }
+    }
+    _localPlaylists = dedupedLocal;
     _rebuildPlaylists();
+  }
+
+  static String _stripLegacyBackupPrefix(String id) {
+    if (!id.startsWith('backup_')) return id;
+    final rest = id.substring('backup_'.length);
+    final lastUnderscore = rest.lastIndexOf('_');
+    if (lastUnderscore <= 0 || lastUnderscore + 1 >= rest.length) return id;
+    return rest.substring(lastUnderscore + 1);
   }
 }

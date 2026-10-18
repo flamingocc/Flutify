@@ -478,6 +478,16 @@ class SpotifyApiService {
     return SpotifyPlaylist(id: id, name: track.name);
   }
 
+  /// 按 URI 批量取曲目完整信息（歌单备份补全外部账号已收藏曲目用）。
+  Future<List<SpotifyTrack>> getTracksByUris(List<String> uris) async {
+    if (!isConfigured || !_useDesktop || uris.isEmpty) return const [];
+    try {
+      return await _desktop.tracksByUris(uris);
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// 按 URI 取单曲完整信息（Connect 远程曲目补全艺人 / 封面用）。
   /// 只有桌面版会话可用（与 Connect 一致）；非曲目 URI 或失败时返回 null。
   Future<SpotifyTrack?> getTrackByUri(String uri) async {
