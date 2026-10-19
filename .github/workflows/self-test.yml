@@ -75,7 +75,7 @@ jobs:
         run: |
           set +e
           flutter analyze --no-pub --no-fatal-infos lib test > /tmp/an.txt 2>&1; rc=$?
-          grep -E " error " /tmp/an.txt | head -40 | while IFS= read -r l; do echo "::error::${l:0:300}"; done
+          grep -E "^ *(error|warning)|rror" /tmp/an.txt | head -40 | while IFS= read -r l; do echo "::error::${l:0:300}"; done
           exit $rc
       - run: node --test tool/test_*.cjs
       - run: python3 -m unittest discover -s tool -p 'test_*.py'
