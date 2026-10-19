@@ -7,7 +7,7 @@ import '../../../../providers/auth_provider.dart';
 import '../../../widgets/user_avatar.dart';
 import '../../auth/login_screen.dart';
 import '../../auth/widgets/flutify_mark.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
 
 /// 设置页顶部的 Spotify 账号卡片。
 ///

@@ -9,7 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../l10n/l10n.dart';
 import '../../../models/share_target.dart';
 import '../../../services/eme/eme_player.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
 
 /// 系统 WebView 中加载官方嵌入页。不可用时明确提示，iframe 代码仍可复制。
 class EmbedWebView extends StatefulWidget {

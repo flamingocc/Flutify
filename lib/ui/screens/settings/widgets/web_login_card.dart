@@ -7,7 +7,7 @@ import '../../../../core/theme/flutify_tokens.dart';
 import '../../../../services/auth/web_token_service.dart';
 import '../../../widgets/toast/app_toast.dart';
 import '../../auth/web_login_screen.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
 
 /// 设置页「全曲播放（Web 登录）」卡片。
 ///

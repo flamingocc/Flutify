@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/l10n.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
 
 class ShelfSection extends StatelessWidget {
   final String title;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/l10n.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
 
 /// 主页分区标题行：[leading]（艺人头像）+ 标题 / 副标题 + 右侧「显示全部」。
 ///

@@ -6,7 +6,7 @@ import '../../../../providers/preferences_provider.dart';
 import '../../../../services/network/spotify_gateway.dart';
 import '../../../../services/network/network_proxy.dart';
 import 'settings_section.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
 
 class GatewaySettings extends StatelessWidget {
   final VoidCallback onChanged;

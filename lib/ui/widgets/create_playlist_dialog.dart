@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/l10n.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
 
 /// 「为歌单命名」对话框。返回输入的名称，取消时返回 null。
 ///

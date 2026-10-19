@@ -5,7 +5,7 @@ import '../../../l10n/l10n.dart';
 import '../../../providers/playback_provider.dart';
 import '../../widgets/content_bottom_spacer.dart';
 import '../../widgets/cover_image.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
 
 /// 播放队列列表：正在播放 / 队列中的下一首 / 接下来播放（上下文）。
 ///

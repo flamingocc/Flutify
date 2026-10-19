@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
 
 /// Connect 设备名输入框：回车或失焦时提交（去掉首尾空格，空值表示恢复默认名）。
 class DeviceNameField extends StatefulWidget {

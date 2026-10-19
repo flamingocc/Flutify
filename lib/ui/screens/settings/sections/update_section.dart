@@ -8,7 +8,7 @@ import '../../../../services/updates/update_service.dart';
 import '../../../widgets/update_prompt.dart';
 import '../widgets/settings_menu_field.dart';
 import '../widgets/settings_section.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
 
 class UpdateSection extends StatelessWidget {
   const UpdateSection({super.key});

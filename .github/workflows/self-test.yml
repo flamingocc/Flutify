@@ -71,12 +71,7 @@ jobs:
       - run: flutter pub get
       # Existing informational lints are reported; errors and warnings still fail.
       # Standalone diagnostic scripts in tool/ are outside the app analysis scope.
-      - shell: bash
-        run: |
-          set +e
-          flutter analyze --no-pub --no-fatal-infos lib test > /tmp/an.txt 2>&1; rc=$?
-          grep -E "^ *(error|warning)|rror" /tmp/an.txt | head -40 | while IFS= read -r l; do echo "::error::${l:0:300}"; done
-          exit $rc
+      - run: flutter analyze --no-pub --no-fatal-infos lib test
       - run: node --test tool/test_*.cjs
       - run: python3 -m unittest discover -s tool -p 'test_*.py'
       - run: flutter test --no-pub
