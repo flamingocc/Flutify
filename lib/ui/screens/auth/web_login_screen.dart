@@ -14,6 +14,7 @@ import '../../../services/auth/web_token_service.dart';
 import '../../../services/eme/eme_player.dart';
 import '../../shell/desktop/desktop_window.dart';
 import 'linux_web_login_screen.dart';
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
 
 export '../../../services/auth/web_login_flow.dart' show WebLoginStage;
 
@@ -568,7 +569,7 @@ class _ProgressOverlay extends StatelessWidget {
             ),
             if (checkingRegion && onSkipRegion != null) ...[
               const SizedBox(height: 20),
-              TextButton(
+              M3EButton.text(
                 onPressed: onSkipRegion,
                 child: Text(context.l10n.webLoginRegionSkipThisRun),
               ),
@@ -640,7 +641,7 @@ class _RegionBlockedView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  FilledButton.icon(
+                  M3EButton.icon(style: M3EButtonStyle.filled,
                     onPressed: checking ? null : onRecheck,
                     icon: checking
                         ? const SizedBox(
@@ -656,7 +657,7 @@ class _RegionBlockedView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  TextButton(
+                  M3EButton.text(
                     onPressed: checking ? null : onSkip,
                     child: Text(l10n.webLoginRegionForceSkip),
                   ),
@@ -738,7 +739,7 @@ class _NoticeBar extends StatelessWidget {
             ),
           ),
           if (actionLabel != null)
-            TextButton(onPressed: onAction, child: Text(actionLabel!)),
+            M3EButton.text(onPressed: onAction, child: Text(actionLabel!)),
         ],
       ),
     );

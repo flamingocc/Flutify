@@ -23,6 +23,7 @@ import '../../widgets/track_table/track_table_header.dart';
 import '../../widgets/track_tile.dart';
 import 'widgets/collection_hero.dart';
 import 'widgets/collection_widgets.dart';
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
 
 /// 歌单详情页（含 Liked Songs 与自建歌单）。
 ///
@@ -453,7 +454,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              TextButton.icon(
+              M3EButton.icon(style: M3EButtonStyle.text,
                 onPressed: () {
                   setState(() {
                     if (allSelected) {
@@ -477,13 +478,13 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              FilledButton.icon(
+              M3EButton.icon(style: M3EButtonStyle.filled,
                 onPressed: selectedTracks.isEmpty ? null : importToLiked,
                 icon: const Icon(Icons.favorite_rounded, size: 18),
                 label: const Text('一键合并到本账号已点赞歌曲'),
               ),
               if (!isBackupLikedSongs)
-                OutlinedButton.icon(
+                M3EButton.icon(style: M3EButtonStyle.outlined,
                   onPressed: selectedTracks.isEmpty ? null : importAsPlaylist,
                   icon: const Icon(Icons.library_add_rounded, size: 18),
                   label: const Text('将所选导入为本账号歌单'),

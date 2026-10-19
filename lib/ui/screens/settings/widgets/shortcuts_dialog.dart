@@ -4,6 +4,7 @@ import '../../../../core/theme/flutify_tokens.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../widgets/keyboard_shortcuts.dart';
 import '../../../widgets/track_menu.dart';
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
 
 /// 键盘快捷键一览（设置页「关于」）。
 ///
@@ -89,7 +90,7 @@ class ShortcutsDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        TextButton(
+        M3EButton.text(
           onPressed: () => Navigator.pop(context),
           child: Text(l10n.commonClose),
         ),

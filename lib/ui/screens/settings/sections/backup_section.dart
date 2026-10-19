@@ -14,6 +14,7 @@ import '../../../widgets/cover_image.dart';
 import '../../../widgets/toast/app_toast.dart';
 import '../../auth/backup_account_login_screen.dart';
 import '../widgets/settings_section.dart';
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
 
 /// 设置页「歌单备份」分组：
 /// - 显示各个备份账号各自的「已点赞的歌曲」（点击直接查看该账号的已点赞歌曲，不会跳去本机账号）；
@@ -556,7 +557,7 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
           children: [
             Row(
               children: [
-                TextButton.icon(
+                M3EButton.icon(style: M3EButtonStyle.text,
                   onPressed: () {
                     setState(() {
                       if (allSelected) {
@@ -615,12 +616,12 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        M3EButton.text(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
         if (!isBackupLiked)
-          OutlinedButton.icon(
+          M3EButton.icon(style: M3EButtonStyle.outlined,
             onPressed: selected.isEmpty
                 ? null
                 : () {
@@ -640,7 +641,7 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
             icon: const Icon(Icons.library_add_rounded, size: 18),
             label: Text('导入所选为歌单（${selected.length}）'),
           ),
-        FilledButton.icon(
+        M3EButton.icon(style: M3EButtonStyle.filled,
           onPressed: selected.isEmpty
               ? null
               : () async {

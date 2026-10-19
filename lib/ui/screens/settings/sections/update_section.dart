@@ -8,6 +8,7 @@ import '../../../../services/updates/update_service.dart';
 import '../../../widgets/update_prompt.dart';
 import '../widgets/settings_menu_field.dart';
 import '../widgets/settings_section.dart';
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
 
 class UpdateSection extends StatelessWidget {
   const UpdateSection({super.key});
@@ -57,7 +58,7 @@ class UpdateSection extends StatelessWidget {
               label: Text(service.status == UpdateStatus.checking ? l.updatesChecking : l.updatesCheck),
             ),
             if (service.release != null)
-              TextButton(onPressed: () => showUpdateDialog(context, service), child: Text(l.updatesDetails)),
+              M3EButton.text(onPressed: () => showUpdateDialog(context, service), child: Text(l.updatesDetails)),
           ]),
         ),
         if (service.status == UpdateStatus.downloading || service.status == UpdateStatus.installing)
