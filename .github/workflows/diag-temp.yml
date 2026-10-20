@@ -17,6 +17,5 @@ jobs:
       - shell: bash
         run: |
           set +e
-          flutter test --no-pub --reporter expanded > /tmp/t.txt 2>&1
-          grep -E "\[E\]" /tmp/t.txt | sort -u | head -12 | while IFS= read -r l; do echo "::error::${l:0:300}"; done
-          grep -E "^\s+(Expected|Actual):|Bad state|No element|Found 0 widgets|Too many" /tmp/t.txt | sort -u | head -12 | while IFS= read -r l; do echo "::error::${l:0:250}"; done
+          flutter test --no-pub --reporter expanded test/ui/gateway_settings_test.dart test/ui/cache_location_settings_test.dart > /tmp/t.txt 2>&1
+          grep -nE "EXCEPTION|Warning:|could not be tapped|offset|hit test|Expected|Actual|Which|overflow|RenderFlex|Found [0-9]+|zero widgets|multiple" /tmp/t.txt | cut -c1-260 | awk '!seen[$0]++' | head -25 | while IFS= read -r l; do echo "::error::$l"; done
