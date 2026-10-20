@@ -121,7 +121,7 @@ class _GatewayDialogState extends State<_GatewayDialog> {
     final l10n = context.l10n;
     return M3EDialog(
       title: l10n.settingsGateway,
-      content: SizedBox(
+      content: Material(type: MaterialType.transparency, child: SizedBox(
         width: 440,
         child: SingleChildScrollView(
           child: Column(
@@ -194,7 +194,7 @@ class _GatewayDialogState extends State<_GatewayDialog> {
             ],
           ),
         ),
-      ),
+      )),
       actions: [
         M3EButton.text(
           onPressed: () => Navigator.pop(context),

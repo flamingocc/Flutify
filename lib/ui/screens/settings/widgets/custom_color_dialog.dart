@@ -62,7 +62,7 @@ class _CustomColorDialogState extends State<CustomColorDialog> {
 
     return M3EDialog(
       title: l10n.settingsCustomColorTitle,
-      content: SizedBox(
+      content: Material(type: MaterialType.transparency, child: SizedBox(
         width: 340,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -124,7 +124,7 @@ class _CustomColorDialogState extends State<CustomColorDialog> {
             ),
           ],
         ),
-      ),
+      )),
       actions: [
         M3EButton.text(onPressed: () => Navigator.pop(context), child: Text(l10n.commonCancel)),
         M3EButton.filled(onPressed: () => Navigator.pop(context, color), child: Text(l10n.commonDone)),

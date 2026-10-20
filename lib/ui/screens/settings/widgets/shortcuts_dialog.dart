@@ -63,7 +63,7 @@ class ShortcutsDialog extends StatelessWidget {
     final theme = Theme.of(context);
     return M3EDialog(
       title: l10n.settingsShortcuts,
-      content: SizedBox(
+      content: Material(type: MaterialType.transparency, child: SizedBox(
         width: 420,
         child: SingleChildScrollView(
           child: Column(
@@ -88,7 +88,7 @@ class ShortcutsDialog extends StatelessWidget {
             ],
           ),
         ),
-      ),
+      )),
       actions: [
         M3EButton.text(
           onPressed: () => Navigator.pop(context),

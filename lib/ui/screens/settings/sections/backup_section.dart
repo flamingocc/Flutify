@@ -549,7 +549,7 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
 
     return M3EDialog(
       title: '选择要导入的歌曲 · ${widget.playlist.name}',
-      content: SizedBox(
+      content: Material(type: MaterialType.transparency, child: SizedBox(
         width: 520,
         height: 420,
         child: Column(
@@ -614,7 +614,7 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
             ),
           ],
         ),
-      ),
+      )),
       actions: [
         M3EButton.text(
           onPressed: () => Navigator.of(context).pop(),

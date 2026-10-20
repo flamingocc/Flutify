@@ -82,7 +82,7 @@ class _StorageSectionState extends State<StorageSection> {
       context: context,
       builder: (dialogContext) => M3EDialog(
         title: l10n.settingsClearAllCache,
-        content: Text(l10n.settingsClearAllCacheHelp),
+        content: Material(type: MaterialType.transparency, child: Text(l10n.settingsClearAllCacheHelp)),
         actions: [
           M3EButton.text(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -171,7 +171,7 @@ class _StorageSectionState extends State<StorageSection> {
       context: context,
       builder: (dialogContext) => M3EDialog(
         title: l10n.settingsClearAudioCacheTitle,
-        content: Text(l10n.settingsClearAudioCacheMessage),
+        content: Material(type: MaterialType.transparency, child: Text(l10n.settingsClearAudioCacheMessage)),
         actions: [
           M3EButton.text(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -349,7 +349,7 @@ class _LocationDialogState extends State<_LocationDialog> {
     final l10n = context.l10n;
     return M3EDialog(
       title: l10n.settingsCacheLocation,
-      content: SizedBox(
+      content: Material(type: MaterialType.transparency, child: SizedBox(
         width: 480,
         child: SingleChildScrollView(
           child: Column(
@@ -447,7 +447,7 @@ class _LocationDialogState extends State<_LocationDialog> {
             ],
           ),
         ),
-      ),
+      )),
       actions: [
         M3EButton.text(
           onPressed: _picking ? null : () => Navigator.pop(context),

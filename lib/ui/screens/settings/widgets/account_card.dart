@@ -79,7 +79,7 @@ class _SignedIn extends StatelessWidget {
       context: context,
       builder: (ctx) => M3EDialog(
         title: l10n.accountSignOutTitle,
-        content: Text(l10n.accountSignOutMessage),
+        content: Material(type: MaterialType.transparency, child: Text(l10n.accountSignOutMessage)),
         actions: [
           M3EButton.text(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.commonCancel)),
           TextButton(

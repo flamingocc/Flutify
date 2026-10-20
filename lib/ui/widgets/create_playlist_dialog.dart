@@ -40,13 +40,13 @@ class _CreatePlaylistDialogState extends State<CreatePlaylistDialog> {
     final l10n = context.l10n;
     return M3EDialog(
       title: l10n.createPlaylistTitle,
-      content: TextField(
+      content: Material(type: MaterialType.transparency, child: TextField(
         controller: _controller,
         autofocus: true,
         textInputAction: TextInputAction.done,
         onSubmitted: (_) => _submit(),
         decoration: InputDecoration(hintText: l10n.createPlaylistHint),
-      ),
+      )),
       actions: [
         M3EButton.text(onPressed: () => Navigator.pop(context), child: Text(l10n.commonCancel)),
         M3EButton.filled(onPressed: _submit, child: Text(l10n.commonCreate)),

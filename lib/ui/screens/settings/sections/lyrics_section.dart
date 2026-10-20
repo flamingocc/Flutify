@@ -132,7 +132,7 @@ class LyricsSection extends StatelessWidget {
       context: context,
       builder: (context) => M3EDialog(
         title: l10n.settingsLyricsExcluded,
-        content: Form(
+        content: Material(type: MaterialType.transparency, child: Form(
           key: form,
           child: TextFormField(
             initialValue: input,
@@ -150,7 +150,7 @@ class LyricsSection extends StatelessWidget {
                 ? null
                 : l10n.settingsLyricsExcludedInvalid,
           ),
-        ),
+        )),
         actions: [
           M3EButton.text(
             onPressed: () => Navigator.pop(context),
