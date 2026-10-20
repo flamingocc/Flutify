@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../l10n/l10n.dart';
 import 'gradient_track_slider.dart';
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
 
 /// 自定义强调色对话框：色相 / 饱和度 / 亮度三条渐变滑杆 + 十六进制输入 + 大色块预览。
 ///
@@ -125,8 +126,8 @@ class _CustomColorDialogState extends State<CustomColorDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.commonCancel)),
-        FilledButton(onPressed: () => Navigator.pop(context, color), child: Text(l10n.commonDone)),
+        M3EButton.text(onPressed: () => Navigator.pop(context), child: Text(l10n.commonCancel)),
+        M3EButton.filled(onPressed: () => Navigator.pop(context, color), child: Text(l10n.commonDone)),
       ],
     );
   }

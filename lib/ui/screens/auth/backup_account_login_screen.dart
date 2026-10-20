@@ -8,7 +8,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../../services/auth/login_region_check.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3ELoadingIndicator;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3ELoadingIndicator;
 
 /// 独立 WebView 资料登录页的结果：直接从 `open.spotify.com` WebView 会话里拿到的
 /// 登录凭据与账号唯一识别符（邮箱 / 唯一用户名 ID），不手动铸造 token。
@@ -384,7 +384,7 @@ return '';
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
-                    FilledButton(
+                    M3EButton.filled(
                       onPressed: _skipRegionAndContinue,
                       child: Text(l10n.regionCheckSkipThisRun),
                     ),

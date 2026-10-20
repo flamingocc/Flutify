@@ -18,7 +18,7 @@ import '../../widgets/filter_pill.dart';
 import '../../widgets/skeleton.dart';
 import '../../widgets/track_tile.dart';
 import '../detail/widgets/collection_widgets.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3ELoadingIndicator;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle, M3ELoadingIndicator;
 
 /// 搜索页：浏览分类 / 最近搜索 / 多类型搜索结果。
 ///
@@ -201,7 +201,7 @@ class _BrowseView extends StatelessWidget {
                   Expanded(
                     child: Text(l10n.searchRecent, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                   ),
-                  TextButton(
+                  M3EButton.text(
                     onPressed: () => context.read<SpotifyProvider>().clearRecentSearches(),
                     child: Text(l10n.searchClearAll),
                   ),
@@ -499,7 +499,7 @@ class _SearchPageControl extends StatelessWidget {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),
-          TextButton.icon(
+          M3EButton.icon(style: M3EButtonStyle.text,
             key: ValueKey('search-load-more-${type.name}'),
             onPressed: () => spotify.loadMoreSearch(type),
             icon: Icon(

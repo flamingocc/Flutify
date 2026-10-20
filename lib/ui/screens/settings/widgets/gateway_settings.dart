@@ -6,7 +6,7 @@ import '../../../../providers/preferences_provider.dart';
 import '../../../../services/network/spotify_gateway.dart';
 import '../../../../services/network/network_proxy.dart';
 import 'settings_section.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3ESwitch;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3ESwitch;
 
 class GatewaySettings extends StatelessWidget {
   final VoidCallback onChanged;
@@ -196,11 +196,11 @@ class _GatewayDialogState extends State<_GatewayDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        M3EButton.text(
           onPressed: () => Navigator.pop(context),
           child: Text(l10n.commonCancel),
         ),
-        FilledButton(
+        M3EButton.filled(
           onPressed: () {
             String countries;
             try {

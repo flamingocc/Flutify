@@ -11,7 +11,7 @@ import '../../../services/auth/web_token_service.dart';
 import '../../../services/eme/chrome/linux_chrome.dart';
 import '../../widgets/toast/app_toast.dart';
 import 'web_login_screen.dart' show WebLoginResult;
-import 'package:material_3_expressive/material_3_expressive.dart' show M3ELoadingIndicator;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle, M3ELoadingIndicator;
 
 /// Linux 全曲播放 Web 登录：没有内嵌 WebView，改用一个受管理的系统 Chrome
 /// 打开 Spotify 官方登录页，用户在窗口里登录后，App 经 CDP 读取 HttpOnly 的
@@ -177,7 +177,7 @@ class _LinuxWebLoginScreenState extends State<LinuxWebLoginScreen> {
                           icon: const Icon(Icons.open_in_new_rounded),
                           label: Text(l10n.loginReopen),
                         ),
-                        OutlinedButton.icon(
+                        M3EButton.icon(style: M3EButtonStyle.outlined,
                           onPressed: () async {
                             final messenger = ScaffoldMessenger.maybeOf(context);
                             await Clipboard.setData(

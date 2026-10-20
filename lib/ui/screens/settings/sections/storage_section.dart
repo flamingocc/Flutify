@@ -16,6 +16,7 @@ import '../../../../services/storage_service.dart';
 import '../widgets/settings_section.dart';
 import '../widgets/settings_segmented.dart';
 import '../../../widgets/toast/app_toast.dart';
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
 
 /// 存储：音频缓存占用、缓存上限、一键清除。
 ///
@@ -83,11 +84,11 @@ class _StorageSectionState extends State<StorageSection> {
         title: Text(l10n.settingsClearAllCache),
         content: Text(l10n.settingsClearAllCacheHelp),
         actions: [
-          TextButton(
+          M3EButton.text(
             onPressed: () => Navigator.pop(dialogContext, false),
             child: Text(l10n.commonCancel),
           ),
-          FilledButton(
+          M3EButton.filled(
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(l10n.commonClear),
           ),
@@ -173,11 +174,11 @@ class _StorageSectionState extends State<StorageSection> {
         title: Text(l10n.settingsClearAudioCacheTitle),
         content: Text(l10n.settingsClearAudioCacheMessage),
         actions: [
-          TextButton(
+          M3EButton.text(
             onPressed: () => Navigator.pop(dialogContext, false),
             child: Text(l10n.commonCancel),
           ),
-          FilledButton(
+          M3EButton.filled(
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(l10n.commonClear),
           ),
@@ -450,11 +451,11 @@ class _LocationDialogState extends State<_LocationDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        M3EButton.text(
           onPressed: _picking ? null : () => Navigator.pop(context),
           child: Text(l10n.commonCancel),
         ),
-        FilledButton(
+        M3EButton.filled(
           onPressed:
               _picking ||
                   (_preset == CachePreset.custom &&
