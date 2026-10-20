@@ -30,7 +30,7 @@ class GatewaySettings extends StatelessWidget {
                 : gateway.enabled
                 ? gateway.baseUrl
                 : l10n.settingsGatewayDescription,
-            trailing: M3ESwitch(
+            trailing: Semantics(toggled: gateway.automatic ? (proxy?.gateway.enabled ?? false) : gateway.enabled, child: M3ESwitch(
               value: gateway.automatic
                   ? (proxy?.gateway.enabled ?? false)
                   : gateway.enabled,
@@ -43,7 +43,7 @@ class GatewaySettings extends StatelessWidget {
                         _save(context, gateway.copyWith(enabled: enabled));
                       }
                     },
-            ),
+            )),
             onTap: () => _edit(context, gateway),
           ),
           if (gateway.automatic)

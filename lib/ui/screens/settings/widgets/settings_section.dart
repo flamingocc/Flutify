@@ -159,7 +159,7 @@ class SettingsSwitchTile extends StatelessWidget {
         title: title,
         subtitle: subtitle,
         onTap: () => onChanged(!value),
-        trailing: M3ESwitch(value: value, onChanged: onChanged),
+        trailing: Semantics(toggled: value, child: M3ESwitch(value: value, onChanged: onChanged)),
       ),
     );
   }
