@@ -18,5 +18,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - run: cargo test --locked
+      - shell: bash
+        run: |
+          set +e
+          cargo test --locked > /tmp/c.txt 2>&1; rc=$?
+          grep -nE "^(error|warning: unused)|panicked|FAILED|failed|^test result" /tmp/c.txt | cut -c1-240 | head -15 | while IFS= read -r l; do echo "::error::$l"; done
+          exit $rc
       - run: cargo clippy --all-targets -- -D warnings
