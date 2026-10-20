@@ -1,0 +1,22 @@
+name: diag-temp
+on:
+  push:
+    branches: [feat/md3e-batch3]
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - shell: bash
+        run: |
+          set +e
+          flutter test --no-pub --reporter expanded > /tmp/t.txt 2>&1
+          grep -E "\[E\]" /tmp/t.txt | sort -u | head -12 | while IFS= read -r l; do echo "::error::${l:0:300}"; done
+          grep -E "^\s+(Expected|Actual):|Bad state|No element|Found 0 widgets|Too many" /tmp/t.txt | sort -u | head -12 | while IFS= read -r l; do echo "::error::${l:0:250}"; done
