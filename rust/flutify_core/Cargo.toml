@@ -1,0 +1,11 @@
+[package]
+name = "flutify_core"
+version = "0.1.0"
+edition = "2021"
+description = "Flutify 的 Rust 核心（试点：LRC 歌词解析），后续通过 flutter_rust_bridge 供 Dart 调用"
+publish = false
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
