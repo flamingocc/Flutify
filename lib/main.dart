@@ -20,6 +20,7 @@ import 'package:provider/provider.dart';
 import 'core/render/frame_rate_binding.dart';
 import 'core/theme/system_bars.dart';
 import 'core/theme/app_text_scaler.dart';
+import 'core/rust_core.dart';
 import 'core/utils/error_placeholder.dart';
 import 'core/utils/orientation_policy.dart';
 import 'l10n/app_locale.dart';
@@ -114,6 +115,9 @@ Future<Widget> _initializeApp(ValueChanged<String> reportStage) async {
   // just_audio 自身没有 Windows / Linux 实现，需在创建任何 AudioPlayer 之前
   // 注册 media_kit 后端；Android / iOS 仍使用 just_audio 原生实现。
   JustAudioMediaKit.ensureInitialized();
+
+  // Rust 核心（试点：LRC 解析）；失败时各调用点自动回退到 Dart 实现
+  await RustCore.initialize();
 
   // 系统栏透明、内容铺满（edge-to-edge）；图标深浅由 FlutifyApp 按当前主题设置
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
