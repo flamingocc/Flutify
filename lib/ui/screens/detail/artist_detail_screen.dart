@@ -22,6 +22,7 @@ import '../../widgets/track_tile.dart';
 import 'widgets/collection_hero.dart';
 import 'widgets/collection_widgets.dart';
 import 'widgets/artist_catalog_widgets.dart';
+import 'package:material_3_expressive/material_3_expressive.dart' show M3ELoadingIndicator;
 
 /// 艺人主页：热门曲目、关注、作品集（Discography）。
 class ArtistDetailScreen extends StatefulWidget {
@@ -207,7 +208,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                           if (snap.connectionState != ConnectionState.done)
                             const Padding(
                               padding: EdgeInsets.all(24),
-                              child: Center(child: CircularProgressIndicator()),
+                              child: Center(child: M3ELoadingIndicator()),
                             )
                           else if (snap.hasError)
                             EmptyState(

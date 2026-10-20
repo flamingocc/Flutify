@@ -6,6 +6,7 @@ import '../../../../providers/preferences_provider.dart';
 import '../../../../services/network/spotify_gateway.dart';
 import '../../../../services/network/network_proxy.dart';
 import 'settings_section.dart';
+import 'package:material_3_expressive/material_3_expressive.dart' show M3ESwitch;
 
 class GatewaySettings extends StatelessWidget {
   final VoidCallback onChanged;
@@ -29,7 +30,7 @@ class GatewaySettings extends StatelessWidget {
                 : gateway.enabled
                 ? gateway.baseUrl
                 : l10n.settingsGatewayDescription,
-            trailing: Switch(
+            trailing: M3ESwitch(
               value: gateway.automatic
                   ? (proxy?.gateway.enabled ?? false)
                   : gateway.enabled,
