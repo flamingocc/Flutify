@@ -16,7 +16,7 @@ import '../../../../services/storage_service.dart';
 import '../widgets/settings_section.dart';
 import '../widgets/settings_segmented.dart';
 import '../../../widgets/toast/app_toast.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog;
 
 /// 存储：音频缓存占用、缓存上限、一键清除。
 ///
@@ -80,8 +80,8 @@ class _StorageSectionState extends State<StorageSection> {
     final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.settingsClearAllCache),
+      builder: (dialogContext) => M3EDialog(
+        title: l10n.settingsClearAllCache,
         content: Text(l10n.settingsClearAllCacheHelp),
         actions: [
           M3EButton.text(
@@ -92,8 +92,7 @@ class _StorageSectionState extends State<StorageSection> {
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(l10n.commonClear),
           ),
-        ],
-      ),
+        ]),
     );
     if (confirmed != true || !mounted) return;
     final spotify = context.read<SpotifyProvider>();
@@ -170,8 +169,8 @@ class _StorageSectionState extends State<StorageSection> {
     final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.settingsClearAudioCacheTitle),
+      builder: (dialogContext) => M3EDialog(
+        title: l10n.settingsClearAudioCacheTitle,
         content: Text(l10n.settingsClearAudioCacheMessage),
         actions: [
           M3EButton.text(
@@ -182,8 +181,7 @@ class _StorageSectionState extends State<StorageSection> {
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(l10n.commonClear),
           ),
-        ],
-      ),
+        ]),
     );
     if (confirmed != true || !mounted) return;
     setState(() => _clearing = true);
@@ -349,8 +347,8 @@ class _LocationDialogState extends State<_LocationDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return AlertDialog(
-      title: Text(l10n.settingsCacheLocation),
+    return M3EDialog(
+      title: l10n.settingsCacheLocation,
       content: SizedBox(
         width: 480,
         child: SingleChildScrollView(
@@ -467,8 +465,7 @@ class _LocationDialogState extends State<_LocationDialog> {
                 ),
           child: Text(l10n.settingsApply),
         ),
-      ],
-    );
+      ]);
   }
 }
 

@@ -7,7 +7,7 @@ import '../../../../providers/auth_provider.dart';
 import '../../../widgets/user_avatar.dart';
 import '../../auth/login_screen.dart';
 import '../../auth/widgets/flutify_mark.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog;
 
 /// 设置页顶部的 Spotify 账号卡片。
 ///
@@ -77,8 +77,8 @@ class _SignedIn extends StatelessWidget {
     final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.accountSignOutTitle),
+      builder: (ctx) => M3EDialog(
+        title: l10n.accountSignOutTitle,
         content: Text(l10n.accountSignOutMessage),
         actions: [
           M3EButton.text(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.commonCancel)),
@@ -87,8 +87,7 @@ class _SignedIn extends StatelessWidget {
             style: TextButton.styleFrom(foregroundColor: Theme.of(ctx).colorScheme.error),
             child: Text(l10n.accountSignOutConfirm),
           ),
-        ],
-      ),
+        ]),
     );
     if (confirmed == true) await auth.signOut();
   }

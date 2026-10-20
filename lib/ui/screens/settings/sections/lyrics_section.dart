@@ -9,7 +9,7 @@ import '../widgets/lyrics_source_order_tile.dart';
 import '../widgets/settings_section.dart';
 import '../widgets/settings_segmented.dart';
 import '../widgets/settings_slider_tile.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog;
 
 /// 歌词：字号、对齐、当前行位置、模糊强度、来源补全、译词预取与全屏偏好。
 ///
@@ -130,8 +130,8 @@ class LyricsSection extends StatelessWidget {
     final l10n = context.l10n;
     final result = await showDialog<List<String>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.settingsLyricsExcluded),
+      builder: (context) => M3EDialog(
+        title: l10n.settingsLyricsExcluded,
         content: Form(
           key: form,
           child: TextFormField(
@@ -163,8 +163,7 @@ class LyricsSection extends StatelessWidget {
             },
             child: Text(MaterialLocalizations.of(context).saveButtonLabel),
           ),
-        ],
-      ),
+        ]),
     );
     if (context.mounted && result != null)
       provider.update(

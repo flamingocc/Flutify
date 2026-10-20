@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3ESwitch;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EDialog, M3ESwitch;
 
 const _gateway = SpotifyGateway(
   baseUrl: 'https://gateway.example/assets-test',
@@ -152,7 +152,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(M3EDialog), findsNothing);
     expect(prefs.prefs.gateway, _gateway);
   });
 }

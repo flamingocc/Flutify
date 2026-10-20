@@ -6,7 +6,7 @@ import '../../../../providers/preferences_provider.dart';
 import '../../../../services/network/spotify_gateway.dart';
 import '../../../../services/network/network_proxy.dart';
 import 'settings_section.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3ESwitch;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog, M3ESwitch;
 
 class GatewaySettings extends StatelessWidget {
   final VoidCallback onChanged;
@@ -119,8 +119,8 @@ class _GatewayDialogState extends State<_GatewayDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return AlertDialog(
-      title: Text(l10n.settingsGateway),
+    return M3EDialog(
+      title: l10n.settingsGateway,
       content: SizedBox(
         width: 440,
         child: SingleChildScrollView(
@@ -226,7 +226,6 @@ class _GatewayDialogState extends State<_GatewayDialog> {
           },
           child: Text(l10n.settingsApply),
         ),
-      ],
-    );
+      ]);
   }
 }

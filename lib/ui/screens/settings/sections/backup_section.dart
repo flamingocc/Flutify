@@ -14,7 +14,7 @@ import '../../../widgets/cover_image.dart';
 import '../../../widgets/toast/app_toast.dart';
 import '../../auth/backup_account_login_screen.dart';
 import '../widgets/settings_section.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle, M3EDialog;
 
 /// 设置页「歌单备份」分组：
 /// - 显示各个备份账号各自的「已点赞的歌曲」（点击直接查看该账号的已点赞歌曲，不会跳去本机账号）；
@@ -547,8 +547,8 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
         widget.playlist.id.startsWith(BackupAccount.backupLikedPrefix);
     final selected = _selectedTracks;
 
-    return AlertDialog(
-      title: Text('选择要导入的歌曲 · ${widget.playlist.name}'),
+    return M3EDialog(
+      title: '选择要导入的歌曲 · ${widget.playlist.name}',
       content: SizedBox(
         width: 520,
         height: 420,
@@ -659,7 +659,6 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
           icon: const Icon(Icons.favorite_rounded, size: 18),
           label: Text('合并到已点赞歌曲（${selected.length}）'),
         ),
-      ],
-    );
+      ]);
   }
 }

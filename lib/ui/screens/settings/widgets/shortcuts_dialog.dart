@@ -4,7 +4,7 @@ import '../../../../core/theme/flutify_tokens.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../widgets/keyboard_shortcuts.dart';
 import '../../../widgets/track_menu.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog;
 
 /// 键盘快捷键一览（设置页「关于」）。
 ///
@@ -61,8 +61,8 @@ class ShortcutsDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
-    return AlertDialog(
-      title: Text(l10n.settingsShortcuts),
+    return M3EDialog(
+      title: l10n.settingsShortcuts,
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -94,8 +94,7 @@ class ShortcutsDialog extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
           child: Text(l10n.commonClose),
         ),
-      ],
-    );
+      ]);
   }
 }
 
