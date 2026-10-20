@@ -18,4 +18,4 @@ jobs:
         run: |
           set +e
           flutter test --no-pub --reporter expanded test/ui/gateway_settings_test.dart test/ui/cache_location_settings_test.dart > /tmp/t.txt 2>&1
-          grep -nE "EXCEPTION|Warning:|could not be tapped|offset|hit test|Expected|Actual|Which|overflow|RenderFlex|Found [0-9]+|zero widgets|multiple" /tmp/t.txt | cut -c1-260 | awk '!seen[$0]++' | head -25 | while IFS= read -r l; do echo "::error::$l"; done
+          for n in $(grep -n "EXCEPTION CAUGHT" /tmp/t.txt | cut -d: -f1 | head -4); do sed -n "$((n+1)),$((n+7))p" /tmp/t.txt | cut -c1-230 | while IFS= read -r l; do echo "::error::[$n] $l"; done; done
