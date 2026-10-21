@@ -18,5 +18,5 @@ jobs:
       - shell: bash
         run: |
           set +e
-          flutter build linux --release --no-pub > /tmp/b.txt 2>&1
-          head -30 /tmp/b.txt | cut -c1-400 | while IFS= read -r l; do echo "::error::$l"; done
+          flutter build linux --release --no-pub -v > /tmp/b.txt 2>&1
+          grep -nE "undefined|ld:|ld\.lld|cannot find|/usr/bin/ld|error:|rust_lib" /tmp/b.txt | grep -v "^.*cargokit.cmake" | tail -20 | cut -c1-400 | while IFS= read -r l; do echo "::error::$l"; done
