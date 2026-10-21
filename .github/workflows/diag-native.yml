@@ -16,10 +16,7 @@ jobs:
         run: |
           set +e
           flutter build linux --release --no-pub -v > /tmp/b.txt 2>&1
-          n=$(grep -n "Generating librust_lib_flutify" /tmp/b.txt | head -1 | cut -d: -f1)
-          sed -n "$((n-3)),$((n+14))p" /tmp/b.txt | cut -c1-300 | while IFS= read -r l; do echo "::error::L $l"; done
-          ls -R build/linux/x64/release 2>/dev/null | grep -i "rust_lib" | head -5 | while IFS= read -r l; do echo "::error::F $l"; done
-          find build -name "librust_lib_flutify*" 2>/dev/null | head -5 | while IFS= read -r l; do echo "::error::FOUND $l"; done
+          grep -nE "error|panicked|failed|Finished|Compiling (flutify|rust_lib|flutter_rust)|rustup|cargo build|Cargokit|toolchain|manifest|No such|not found|warning: unused" /tmp/b.txt | grep -v "mimalloc\|test-" | cut -c1-280 | tail -24 | while IFS= read -r l; do echo "::error::L $l"; done
   windows:
     runs-on: windows-latest
     timeout-minutes: 30
