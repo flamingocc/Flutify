@@ -15,8 +15,10 @@ jobs:
       - shell: bash
         run: |
           set +e
+          (cd rust/flutify_core && cargo build --release > /tmp/c.txt 2>&1; echo "cargo rc=$?" >> /tmp/c.txt; ls target/release | head -20 >> /tmp/c.txt; tail -8 /tmp/c.txt) | cut -c1-250 | while IFS= read -r l; do echo "::error::C $l"; done
           flutter build linux --release --no-pub -v > /tmp/b.txt 2>&1
-          grep -nE "error|panicked|failed|Finished|Compiling (flutify|rust_lib|flutter_rust)|rustup|cargo build|Cargokit|toolchain|manifest|No such|not found|warning: unused" /tmp/b.txt | grep -v "mimalloc\|test-" | cut -c1-280 | tail -24 | while IFS= read -r l; do echo "::error::L $l"; done
+          find build rust_builder -iname "*rust_lib*" 2>/dev/null | head -12 | while IFS= read -r l; do echo "::error::FOUND $l"; done
+          grep -n "run_build_tool\|build-cmake\|CARGOKIT" /tmp/b.txt | head -8 | cut -c1-250 | while IFS= read -r l; do echo "::error::B $l"; done
   windows:
     runs-on: windows-latest
     timeout-minutes: 30
