@@ -18,10 +18,5 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - shell: bash
-        run: |
-          set +e
-          CARGO_TERM_COLOR=never cargo test --locked > /tmp/c.txt 2>&1; rc=$?
-          grep -nE "^error|-->|panicked|FAILED|^test result" /tmp/c.txt | cut -c1-240 | head -15 | while IFS= read -r l; do echo "::error::$l"; done
-          exit $rc
+      - run: cargo test --locked
       - run: cargo clippy --all-targets -- -D warnings
