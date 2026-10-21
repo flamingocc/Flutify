@@ -19,4 +19,4 @@ jobs:
         run: |
           set +e
           flutter build linux --release --no-pub > /tmp/b.txt 2>&1
-          grep -nEi "error|fail|cannot|not found|No such|panicked" /tmp/b.txt | cut -c1-260 | awk '!s[$0]++' | head -25 | while IFS= read -r l; do echo "::error::$l"; done
+          head -30 /tmp/b.txt | cut -c1-400 | while IFS= read -r l; do echo "::error::$l"; done
