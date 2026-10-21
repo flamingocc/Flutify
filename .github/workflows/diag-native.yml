@@ -1,0 +1,35 @@
+name: diag-native
+on:
+  push:
+    branches: [feat/rust-ffi]
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.44.0', channel: stable, cache: true }
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build libgtk-3-dev liblzma-dev libblkid-dev
+      - run: flutter pub get
+      - shell: bash
+        run: |
+          set +e
+          flutter build linux --release --no-pub -v > /tmp/b.txt 2>&1
+          n=$(grep -n "Generating librust_lib_flutify" /tmp/b.txt | head -1 | cut -d: -f1)
+          sed -n "$((n-3)),$((n+14))p" /tmp/b.txt | cut -c1-300 | while IFS= read -r l; do echo "::error::L $l"; done
+          ls -R build/linux/x64/release 2>/dev/null | grep -i "rust_lib" | head -5 | while IFS= read -r l; do echo "::error::F $l"; done
+          find build -name "librust_lib_flutify*" 2>/dev/null | head -5 | while IFS= read -r l; do echo "::error::FOUND $l"; done
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { flutter-version: '3.44.0', channel: stable, cache: true }
+      - run: flutter pub get
+      - shell: bash
+        run: |
+          set +e
+          flutter build windows --release --no-pub -v > /tmp/w.txt 2>&1
+          grep -nE "error|Error|FAILED|cargo|rustup|rust_lib|LNK" /tmp/w.txt | grep -v "dart_build\|_cargokit.cmake" | tail -22 | cut -c1-300 | while IFS= read -r l; do echo "::error::W $l"; done
