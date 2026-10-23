@@ -14,6 +14,8 @@ import 'oauth_client_config.dart';
 import 'oauth_loopback_server.dart';
 import 'oauth_pkce_service.dart';
 import 'session_http_client.dart';
+import 'web_token_exception.dart';
+import 'web_token_service.dart';
 
 /// Spotify 身份鉴权总控：只有一条登录链路——**在浏览器中登录**（桌面版 OAuth）。
 ///
@@ -220,6 +222,38 @@ class SpotifyAuthService {
     _storage.checkSession(epoch);
   }
 
+  /// 用已完成的 Web 会话（`sp_dc` + 铸造的 `webAccessToken`）直接建立全局登录态，
+  /// 无需再发起桌面版 OAuth 回环授权。
+  Future<void> completeWebSignIn() async {
+    final epoch = _storage.sessionEpoch;
+    _storage.checkSession(epoch);
+    var token = _storage.webAccessToken;
+    var expiryMs = _storage.webAccessTokenExpiry;
+    if (token.isEmpty || !_isFresh(expiryMs)) {
+      final minted = await WebTokenService.mintTokenForSpDc(
+        _storage.spDc,
+        client: _client,
+      );
+      token = minted.token;
+      expiryMs = minted.expiryMs;
+    }
+    await _storage.writeSession(epoch, [
+      _storage.markDesktopSession,
+      () => _storage.setWebAccessToken(token, expiryMs),
+      () => _storage.setAccessToken(token),
+      () => _storage.setAccessTokenExpiry(expiryMs),
+    ]);
+    sessionExpired.value = false;
+    try {
+      await ensureClientToken();
+    } catch (_) {}
+    _storage.checkSession(epoch);
+    try {
+      await _loadProfile();
+    } catch (_) {}
+    _storage.checkSession(epoch);
+  }
+
   // ---------------------------------------------------------------------------
   // 令牌续期
   // ---------------------------------------------------------------------------
@@ -264,6 +298,28 @@ class SpotifyAuthService {
 
   Future<String> _refresh() async {
     final epoch = _storage.sessionEpoch;
+    if (_storage.refreshToken.isEmpty && _storage.spDc.isNotEmpty) {
+      try {
+        final minted = await WebTokenService.mintTokenForSpDc(
+          _storage.spDc,
+          client: _client,
+        );
+        await _storage.writeSession(epoch, [
+          _storage.markDesktopSession,
+          () => _storage.setWebAccessToken(minted.token, minted.expiryMs),
+          () => _storage.setAccessToken(minted.token),
+          () => _storage.setAccessTokenExpiry(minted.expiryMs),
+        ]);
+        sessionExpired.value = false;
+        return _storage.accessToken;
+      } on WebTokenHttpException catch (e) {
+        if (epoch == _storage.sessionEpoch && e.statusCode == 401) {
+          sessionExpired.value = true;
+          throw const OAuthException('登录已过期，请重新登录', 'invalid_grant');
+        }
+        rethrow;
+      }
+    }
     try {
       final tokens = await _oauth.refresh(
         config: _config,

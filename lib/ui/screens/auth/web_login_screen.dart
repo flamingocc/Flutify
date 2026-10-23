@@ -118,10 +118,12 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
       // 创建即 ERROR_INVALID_STATE，读 cookie 永远抛异常 —— 登录完卡在 open.spotify.com 的根因。
       readSpDc: _readSpDc,
       saveSpDc: tokens.setSpDc,
-      prepareWebToken: () =>
-          tokens.mintAccessToken().timeout(const Duration(seconds: 15)),
-      // 没有 AuthProvider（测试）时视为桌面已登录，只做 Web 会话部分
-      desktopSignedIn: () => auth?.isSignedIn ?? true,
+      prepareWebToken: () async {
+        await tokens.mintAccessToken().timeout(const Duration(seconds: 15));
+        await auth?.completeWebSignIn();
+      },
+      // Web 登录完成铸造 token 后即已完成全局登录，无需再发起桌面版 OAuth 回环授权
+      desktopSignedIn: () => (auth?.isSignedIn ?? true) || tokens.hasSpDc,
       beginDesktopOAuth: () async => auth?.beginOAuth(),
       cancelDesktopOAuth: () async => auth?.cancelOAuth(),
       onAuthorizeUrl: _loadAuthorizeUrl,

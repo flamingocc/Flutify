@@ -31,10 +31,10 @@ pub struct AesCipher {
 
 impl AesCipher {
     pub fn new(key: &[u8]) -> Result<Self, String> {
-        let nk = key.len() / 4;
-        if key.len() % 4 != 0 || (nk != 4 && nk != 6 && nk != 8) {
+        if !matches!(key.len(), 16 | 24 | 32) {
             return Err(format!("AES key must be 16/24/32 bytes, got {}", key.len()));
         }
+        let nk = key.len() / 4;
         let rounds = nk + 6;
         let mut expanded = vec![0u8; 16 * (rounds + 1)];
         expanded[..key.len()].copy_from_slice(key);
@@ -42,7 +42,7 @@ impl AesCipher {
         let mut temp = [0u8; 4];
         for i in nk..(4 * (rounds + 1)) {
             temp.copy_from_slice(&expanded[4 * (i - 1)..4 * i]);
-            if i % nk == 0 {
+            if i.is_multiple_of(nk) {
                 let t = temp[0];
                 temp[0] = SBOX[temp[1] as usize] ^ RCON[i / nk - 1];
                 temp[1] = SBOX[temp[2] as usize];

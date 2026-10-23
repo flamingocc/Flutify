@@ -94,6 +94,7 @@ class _LinuxWebLoginScreenState extends State<LinuxWebLoginScreen> {
       await _tokens.setSpDc(spDc);
       try {
         await _tokens.mintAccessToken().timeout(const Duration(seconds: 15));
+        await _auth?.completeWebSignIn();
       } catch (_) {}
       // 登录完成：关掉可见的 Chrome 窗口；之后全曲播放会以无窗口（headless）模式重新拉起。
       await LinuxChromeManager.instance.dispose();

@@ -170,6 +170,26 @@ class AuthProvider extends ChangeNotifier {
     await _auth.cancelOAuth();
   }
 
+  /// 用已完成的 Web 会话（`sp_dc` + 铸造的 `webAccessToken`）直接完成登录，不再发起桌面端回环 OAuth。
+  Future<void> completeWebSignIn() async {
+    final revision = ++_revision;
+    _error = null;
+    try {
+      await _auth.completeWebSignIn();
+    } catch (e) {
+      if (_disposed || revision != _revision) return;
+      _error = describeError(e);
+      notifyListeners();
+      return;
+    }
+    if (_disposed || revision != _revision || !_auth.isLoggedIn) return;
+    _authorizeUrl = null;
+    _status = AuthStatus.signedIn;
+    notifyListeners();
+    onSessionChanged?.call();
+    unawaited(_backfillProfile());
+  }
+
   // ---------------------------------------------------------------------------
   // 已登录操作
   // ---------------------------------------------------------------------------
