@@ -10,6 +10,24 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 List<LrcLine> parseLrc({required String lrc}) =>
     RustLib.instance.api.crateApiLyricsParseLrc(lrc: lrc);
 
+/// 短文本（曲名 / 歌手）文种识别，返回 `LyricLang.index`。
+int detectLyricLang({required String text}) =>
+    RustLib.instance.api.crateApiLyricsDetectLyricLang(text: text);
+
+/// 歌词正文主语言识别，返回 `LyricLang.index`。
+int mainLyricLang({required String text}) =>
+    RustLib.instance.api.crateApiLyricsMainLyricLang(text: text);
+
+/// 歌词文字与目标语言的吻合度（0 ~ 100）。
+double scoreLyricLang({required int target, required String text}) => RustLib
+    .instance
+    .api
+    .crateApiLyricsScoreLyricLang(target: target, text: text);
+
+/// 一行歌词的主导文字大类（0..=7，无字母时为 -1）。
+int lyricLineFamily({required String text}) =>
+    RustLib.instance.api.crateApiLyricsLyricLineFamily(text: text);
+
 /// 一行同步歌词（`start_time_ms` 为毫秒）。
 class LrcLine {
   final PlatformInt64 startTimeMs;
