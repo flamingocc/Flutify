@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../l10n/l10n.dart';
+import '../../../models/album.dart';
 import '../../../models/artist.dart';
 import '../../../models/category.dart';
 import '../../../models/playback_context.dart';
 import '../../../models/playlist.dart';
+import '../../../models/share_target.dart';
 import '../../../models/track.dart';
 import '../../../providers/playback_provider.dart';
 import '../../../providers/spotify_provider.dart';
@@ -83,6 +87,44 @@ class _SearchScreenState extends State<SearchScreen> {
   void _submitSearch() {
     _commit();
     _dismissKeyboard();
+    unawaited(_tryOpenSpotifyLink(_searchController.text));
+  }
+
+  Future<void> _tryOpenSpotifyLink(String raw) async {
+    final link = SpotifyLink.parse(raw);
+    if (link == null || !mounted) return;
+    switch (link.kind) {
+      case ShareKind.track:
+        final spotify = context.read<SpotifyProvider>();
+        final playback = context.read<PlaybackProvider?>();
+        if (playback == null) return;
+        SpotifyTrack? track = spotify.searchTracks
+            .where((t) => t.id == link.id)
+            .firstOrNull;
+        track ??= await spotify.resolveTrackByUri(link.uri);
+        if (!mounted || track == null) return;
+        await playback.playTrack(track);
+      case ShareKind.album:
+        AppRoutes.openAlbum(context, SpotifyAlbum(id: link.id, name: ''));
+      case ShareKind.playlist:
+        final spotify = context.read<SpotifyProvider>();
+        final existing = spotify.searchPlaylists
+            .where((p) => p.id == link.id)
+            .firstOrNull;
+        AppRoutes.openPlaylist(
+          context,
+          existing ?? SpotifyPlaylist(id: link.id, name: ''),
+        );
+      case ShareKind.artist:
+        final spotify = context.read<SpotifyProvider>();
+        final existing = spotify.searchArtists
+            .where((a) => a.id == link.id)
+            .firstOrNull;
+        AppRoutes.openArtist(
+          context,
+          existing ?? SpotifyArtist(id: link.id, name: ''),
+        );
+    }
   }
 
   void _onResultTap() {

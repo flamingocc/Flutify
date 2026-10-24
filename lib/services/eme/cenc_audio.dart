@@ -1,5 +1,8 @@
 import 'dart:typed_data';
 
+import '../../core/rust_core.dart';
+import '../../src/rust/api/protocol.dart' as rust;
+
 /// Fixed diagnostic codes, safe to log without media bytes or arbitrary input.
 enum CencFormatFailure { unsupportedCodec, unsupportedEncryptionScheme }
 
@@ -23,8 +26,40 @@ class CencAudio {
 
   static CencAudio parse(Uint8List bytes) {
     final audio = CencAudio._(bytes);
+    if (RustCore.ready) {
+      audio._parseViaRust();
+      return audio;
+    }
     audio._parse();
     return audio;
+  }
+
+  void _parseViaRust() {
+    try {
+      final parsed = rust.parseCencAudio(bytes: bytes);
+      pssh = parsed.pssh;
+      for (final s in parsed.samples) {
+        final subs = <({int clear, int cipher})>[
+          for (var i = 0; i < s.subsampleClear.length && i < s.subsampleCipher.length; i++)
+            (clear: s.subsampleClear[i], cipher: s.subsampleCipher[i]),
+        ];
+        samples.add(CencSample(s.offset, s.size, s.kid, s.iv, subs));
+      }
+      for (final p in parsed.patches) {
+        _patches.add((offset: p.offset, type: p.boxType));
+      }
+    } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('UNSUPPORTED_CODEC')) {
+        throw const CencFormatException(CencFormatFailure.unsupportedCodec);
+      }
+      if (msg.contains('UNSUPPORTED_ENCRYPTION_SCHEME')) {
+        throw const CencFormatException(
+          CencFormatFailure.unsupportedEncryptionScheme,
+        );
+      }
+      throw FormatException(msg);
+    }
   }
 
   int _u32(int at) => ByteData.sublistView(bytes).getUint32(at);

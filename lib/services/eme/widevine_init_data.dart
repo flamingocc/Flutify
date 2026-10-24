@@ -1,10 +1,20 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../core/rust_core.dart';
+import '../../src/rust/api/protocol.dart' as rust;
+
 /// Uses the source's HLS initialization data unchanged, just as hls.js and
 /// Media3 do. It may carry service metadata absent from the MP4's PSSH.
 /// No network URI is fetched here. A malformed Widevine key fails closed.
 Uint8List? widevinePsshFromHls(String manifest) {
+  if (RustCore.ready) {
+    try {
+      return rust.widevinePsshFromHls(manifest: manifest);
+    } catch (e) {
+      throw FormatException(e.toString());
+    }
+  }
   const systemId = 'edef8ba979d64acea3c827dcd51d21ed';
   const keyFormat = 'urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed';
   const invalid = FormatException('Invalid HLS Widevine initialization data');

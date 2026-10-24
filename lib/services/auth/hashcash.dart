@@ -3,6 +3,9 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
+import '../../core/rust_core.dart';
+import '../../src/rust/api/protocol.dart' as rust;
+
 /// Spotify 登录用的 Hashcash 工作量证明求解器。
 ///
 /// 算法（与 librespot `util::solve_hash_cash` 一致）：
@@ -16,6 +19,9 @@ class Hashcash {
 
   /// 在后台 Isolate 中求解，避免最长 5 秒的 SHA1 循环阻塞 UI 线程。
   static Future<Uint8List> solveAsync(List<int> ctx, List<int> prefix, int length) {
+    if (RustCore.ready) {
+      return Future.value(solve(ctx, prefix, length));
+    }
     final ctxCopy = List<int>.of(ctx);
     final prefixCopy = List<int>.of(prefix);
     return Isolate.run(() => solve(ctxCopy, prefixCopy, length));
@@ -28,6 +34,18 @@ class Hashcash {
     int length, {
     Duration timeout = const Duration(seconds: 5),
   }) {
+    if (RustCore.ready) {
+      try {
+        return rust.solveHashcash(
+          ctx: ctx,
+          prefix: prefix,
+          length: length,
+          timeoutMs: timeout.inMilliseconds,
+        );
+      } catch (e) {
+        throw StateError('Hashcash 求解超时（$length 位难度）：$e');
+      }
+    }
     final deadline = DateTime.now().add(timeout);
 
     final md = sha1.convert(ctx).bytes;
