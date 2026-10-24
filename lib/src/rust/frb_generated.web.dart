@@ -7,6 +7,7 @@
 // ignore_for_file: argument_type_not_assignable
 
 import 'api/lyrics.dart';
+import 'api/network.dart';
 import 'api/protocol.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -22,10 +23,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   });
 
   @protected
+  AnyhowException dco_decode_AnyhowException(dynamic raw);
+
+  @protected
+  RustStreamSink<AudioDownloadEvent>
+  dco_decode_StreamSink_audio_download_event_Sse(dynamic raw);
+
+  @protected
+  RustStreamSink<WebSocketEvent> dco_decode_StreamSink_web_socket_event_Sse(
+    dynamic raw,
+  );
+
+  @protected
   String dco_decode_String(dynamic raw);
 
   @protected
   ApHandshakeKeys dco_decode_ap_handshake_keys(dynamic raw);
+
+  @protected
+  AudioDownloadEvent dco_decode_audio_download_event(dynamic raw);
 
   @protected
   BilingualLine dco_decode_bilingual_line(dynamic raw);
@@ -108,10 +124,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void dco_decode_unit(dynamic raw);
 
   @protected
+  WebSocketEvent dco_decode_web_socket_event(dynamic raw);
+
+  @protected
+  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
+
+  @protected
+  RustStreamSink<AudioDownloadEvent>
+  sse_decode_StreamSink_audio_download_event_Sse(SseDeserializer deserializer);
+
+  @protected
+  RustStreamSink<WebSocketEvent> sse_decode_StreamSink_web_socket_event_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
   ApHandshakeKeys sse_decode_ap_handshake_keys(SseDeserializer deserializer);
+
+  @protected
+  AudioDownloadEvent sse_decode_audio_download_event(
+    SseDeserializer deserializer,
+  );
 
   @protected
   BilingualLine sse_decode_bilingual_line(SseDeserializer deserializer);
@@ -208,11 +244,38 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
+  WebSocketEvent sse_decode_web_socket_event(SseDeserializer deserializer);
+
+  @protected
+  void sse_encode_AnyhowException(
+    AnyhowException self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_audio_download_event_Sse(
+    RustStreamSink<AudioDownloadEvent> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_web_socket_event_Sse(
+    RustStreamSink<WebSocketEvent> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
   void sse_encode_ap_handshake_keys(
     ApHandshakeKeys self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_audio_download_event(
+    AudioDownloadEvent self,
     SseSerializer serializer,
   );
 
@@ -329,6 +392,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_web_socket_event(
+    WebSocketEvent self,
+    SseSerializer serializer,
+  );
 }
 
 // Section: wire_class
