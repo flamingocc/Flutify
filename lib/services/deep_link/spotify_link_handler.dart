@@ -4,10 +4,13 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// 系统里点开的 `spotify:` / `open.spotify.com` 链接（Windows、Android）。
+/// 系统里点开的 `spotify:` / `open.spotify.com` 链接（Windows、Android、macOS、Linux）。
 ///
-/// 原生侧负责注册与转发（Windows：windows/runner/protocol_handler.cpp，单实例转发；
-/// Android：SpotifyLinkPlugin.kt，intent-filter + singleTask 的 onNewIntent）：
+/// 原生侧负责注册与转发：
+/// - Windows：windows/runner/protocol_handler.cpp（HKCU 注册 + 单实例 WM_COPYDATA 转发）；
+/// - Android：SpotifyLinkPlugin.kt（intent-filter + singleTask 的 onNewIntent）；
+/// - macOS：Info.plist CFBundleURLTypes + AppDelegate 的 kAEGetURL（系统本身单实例）；
+/// - Linux：.desktop 的 x-scheme-handler/spotify + GApplication 单实例的 open 转发。
 /// 启动参数里的链接经 `initialLink` 取一次，运行中其他实例转发来的链接经 `openLink` 推送。
 class SpotifyLinkHandler {
   SpotifyLinkHandler._();
@@ -15,7 +18,11 @@ class SpotifyLinkHandler {
   static const MethodChannel _channel = MethodChannel('flutify/protocol');
 
   static bool get isSupported =>
-      !kIsWeb && (Platform.isWindows || Platform.isAndroid);
+      !kIsWeb &&
+      (Platform.isWindows ||
+          Platform.isAndroid ||
+          Platform.isMacOS ||
+          Platform.isLinux);
 
   /// 能否在应用内「设为默认」：仅 Windows；Android 由系统的打开方式选择器决定。
   static bool get canSetDefault => !kIsWeb && Platform.isWindows;
