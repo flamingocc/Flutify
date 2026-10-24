@@ -243,7 +243,7 @@ class _BrowseView extends StatelessWidget {
                   Expanded(
                     child: Text(l10n.searchRecent, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                   ),
-                  TextButton(
+                  M3EButton.text(
                     onPressed: () => context.read<SpotifyProvider>().clearRecentSearches(),
                     child: Text(l10n.searchClearAll),
                   ),
@@ -541,7 +541,7 @@ class _SearchPageControl extends StatelessWidget {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall,
             ),
-          TextButton.icon(
+          M3EButton.icon(style: M3EButtonStyle.text, 
             key: ValueKey('search-load-more-${type.name}'),
             onPressed: () => spotify.loadMoreSearch(type),
             icon: Icon(

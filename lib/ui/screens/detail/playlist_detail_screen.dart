@@ -1,3 +1,4 @@
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -464,7 +465,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              TextButton.icon(
+              M3EButton.icon(style: M3EButtonStyle.text, 
                 onPressed: () {
                   setState(() {
                     if (allSelected) {
@@ -488,7 +489,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              FilledButton.icon(
+              M3EButton.icon(style: M3EButtonStyle.filled, 
                 onPressed: selectedTracks.isEmpty ? null : likeSelectedTracks,
                 icon: const Icon(Icons.favorite_rounded, size: 18),
                 label: Text(
@@ -498,7 +499,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 ),
               ),
               if (isExternalBackupLikedSongs)
-                OutlinedButton.icon(
+                M3EButton.icon(style: M3EButtonStyle.outlined, 
                   onPressed: selectedTracks.isEmpty ? null : importAsPlaylist,
                   icon: const Icon(Icons.library_add_rounded, size: 18),
                   label: const Text('将所选导入为本账号歌单'),

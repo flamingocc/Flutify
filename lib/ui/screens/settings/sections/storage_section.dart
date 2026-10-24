@@ -16,6 +16,7 @@ import '../../../../services/storage_service.dart';
 import '../widgets/settings_section.dart';
 import '../widgets/settings_segmented.dart';
 import '../../../widgets/toast/app_toast.dart';
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog;
 
 /// 存储：音频缓存占用、缓存上限、一键清除。
 ///
@@ -79,20 +80,19 @@ class _StorageSectionState extends State<StorageSection> {
     final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.settingsClearAllCache),
-        content: Text(l10n.settingsClearAllCacheHelp),
+      builder: (dialogContext) => M3EDialog(
+        title: l10n.settingsClearAllCache,
+        content: Material(type: MaterialType.transparency, child: Text(l10n.settingsClearAllCacheHelp)),
         actions: [
-          TextButton(
+          M3EButton.text(
             onPressed: () => Navigator.pop(dialogContext, false),
             child: Text(l10n.commonCancel),
           ),
-          FilledButton(
+          M3EButton.filled(
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(l10n.commonClear),
           ),
-        ],
-      ),
+        ]),
     );
     if (confirmed != true || !mounted) return;
     final spotify = context.read<SpotifyProvider>();
@@ -169,20 +169,19 @@ class _StorageSectionState extends State<StorageSection> {
     final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.settingsClearAudioCacheTitle),
-        content: Text(l10n.settingsClearAudioCacheMessage),
+      builder: (dialogContext) => M3EDialog(
+        title: l10n.settingsClearAudioCacheTitle,
+        content: Material(type: MaterialType.transparency, child: Text(l10n.settingsClearAudioCacheMessage)),
         actions: [
-          TextButton(
+          M3EButton.text(
             onPressed: () => Navigator.pop(dialogContext, false),
             child: Text(l10n.commonCancel),
           ),
-          FilledButton(
+          M3EButton.filled(
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(l10n.commonClear),
           ),
-        ],
-      ),
+        ]),
     );
     if (confirmed != true || !mounted) return;
     setState(() => _clearing = true);
@@ -348,9 +347,9 @@ class _LocationDialogState extends State<_LocationDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return AlertDialog(
-      title: Text(l10n.settingsCacheLocation),
-      content: SizedBox(
+    return M3EDialog(
+      title: l10n.settingsCacheLocation,
+      content: Material(type: MaterialType.transparency, child: SizedBox(
         width: 480,
         child: SingleChildScrollView(
           child: Column(
@@ -448,13 +447,13 @@ class _LocationDialogState extends State<_LocationDialog> {
             ],
           ),
         ),
-      ),
+      )),
       actions: [
-        TextButton(
+        M3EButton.text(
           onPressed: _picking ? null : () => Navigator.pop(context),
           child: Text(l10n.commonCancel),
         ),
-        FilledButton(
+        M3EButton.filled(
           onPressed:
               _picking ||
                   (_preset == CachePreset.custom &&
@@ -466,8 +465,7 @@ class _LocationDialogState extends State<_LocationDialog> {
                 ),
           child: Text(l10n.settingsApply),
         ),
-      ],
-    );
+      ]);
   }
 }
 

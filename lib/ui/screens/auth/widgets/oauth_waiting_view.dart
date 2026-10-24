@@ -112,7 +112,7 @@ class OAuthWaitingView extends StatelessWidget {
             ],
           ),
         const SizedBox(height: 12),
-        TextButton(
+        M3EButton.text(
           onPressed: auth.cancelOAuth,
           child: Text(context.l10n.commonCancel),
         ),

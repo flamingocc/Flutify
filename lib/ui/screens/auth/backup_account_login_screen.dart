@@ -384,7 +384,7 @@ return '';
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
-                    FilledButton(
+                    M3EButton.filled(
                       onPressed: _skipRegionAndContinue,
                       child: Text(l10n.regionCheckSkipThisRun),
                     ),

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../l10n/l10n.dart';
 import '../../services/updates/update_release.dart';
 import '../../services/updates/update_service.dart';
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
 
 Future<void> showUpdateDialog(BuildContext context, UpdateService service) => showDialog<void>(
   context: context,
@@ -39,7 +40,7 @@ Future<void> showUpdateDialog(BuildContext context, UpdateService service) => sh
                 if (!service.canDownload) Text(l.updatesUnsupported),
                 if (service.needsInstallPermission) Text(l.updatesPermission),
                 if (service.error != null) Text(l.updatesFailed, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                TextButton.icon(
+                M3EButton.icon(style: M3EButtonStyle.text,
                   onPressed: () => openUpdatePage(context, service),
                   icon: const Icon(Icons.open_in_new_rounded),
                   label: Text(l.updatesPage),
@@ -49,16 +50,16 @@ Future<void> showUpdateDialog(BuildContext context, UpdateService service) => sh
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(l.updatesLater)),
+          M3EButton.text(onPressed: () => Navigator.pop(context), child: Text(l.updatesLater)),
           if (service.status != UpdateStatus.installing)
-            TextButton(onPressed: () { unawaited(service.skip()); Navigator.pop(context); }, child: Text(l.updatesSkip)),
+            M3EButton.text(onPressed: () { unawaited(service.skip()); Navigator.pop(context); }, child: Text(l.updatesSkip)),
           if (service.status == UpdateStatus.downloading)
-            TextButton(onPressed: service.cancelDownload, child: Text(l.commonCancel)),
+            M3EButton.text(onPressed: service.cancelDownload, child: Text(l.commonCancel)),
           if (ready)
-            FilledButton.icon(onPressed: service.install, icon: const Icon(Icons.install_mobile_rounded),
+            M3EButton.icon(style: M3EButtonStyle.filled,onPressed: service.install, icon: const Icon(Icons.install_mobile_rounded),
               label: Text(android ? l.updatesInstallApk : l.updatesInstall)),
           if (!ready && !service.busy && service.canDownload)
-            FilledButton.icon(onPressed: service.download, icon: const Icon(Icons.download_rounded), label: Text(l.updatesDownload)),
+            M3EButton.icon(style: M3EButtonStyle.filled,onPressed: service.download, icon: const Icon(Icons.download_rounded), label: Text(l.updatesDownload)),
         ],
       );
     },

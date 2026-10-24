@@ -1,3 +1,4 @@
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -551,13 +552,14 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
         .isExternalBackupLikedPlaylist(widget.playlist.id);
     final selected = _selectedTracks;
 
-    return AlertDialog(
-      title: Text(
-        isExternalBackupLiked
-            ? '选择要导入的歌曲 · ${widget.playlist.name}'
-            : '多选收藏歌曲 · ${widget.playlist.name}',
-      ),
-      content: SizedBox(
+    return M3EDialog(
+      title: isExternalBackupLiked
+          ? '选择要导入的歌曲 · ${widget.playlist.name}'
+          : '多选收藏歌曲 · ${widget.playlist.name}',
+      // CheckboxListTile 需要 Material 祖先
+      content: Material(
+        type: MaterialType.transparency,
+        child: SizedBox(
         width: 520,
         height: 420,
         child: Column(
@@ -565,7 +567,8 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
           children: [
             Row(
               children: [
-                TextButton.icon(
+                M3EButton.icon(
+                  style: M3EButtonStyle.text,
                   onPressed: () {
                     setState(() {
                       if (allSelected) {
@@ -622,14 +625,16 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
             ),
           ],
         ),
+        ),
       ),
       actions: [
-        TextButton(
+        M3EButton.text(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
         if (isExternalBackupLiked)
-          OutlinedButton.icon(
+          M3EButton.icon(
+            style: M3EButtonStyle.outlined,
             onPressed: selected.isEmpty
                 ? null
                 : () {
@@ -651,7 +656,8 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
             icon: const Icon(Icons.library_add_rounded, size: 18),
             label: Text('导入所选为歌单（${selected.length}）'),
           ),
-        FilledButton.icon(
+        M3EButton.icon(
+          style: M3EButtonStyle.filled,
           onPressed: selected.isEmpty
               ? null
               : () async {

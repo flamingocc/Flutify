@@ -178,7 +178,7 @@ class _LinuxWebLoginScreenState extends State<LinuxWebLoginScreen> {
                           icon: const Icon(Icons.open_in_new_rounded),
                           label: Text(l10n.loginReopen),
                         ),
-                        OutlinedButton.icon(
+                        M3EButton.icon(style: M3EButtonStyle.outlined, 
                           onPressed: () async {
                             final messenger = ScaffoldMessenger.maybeOf(context);
                             await Clipboard.setData(

@@ -6,6 +6,7 @@ import '../../../../providers/preferences_provider.dart';
 import '../../../../services/network/spotify_gateway.dart';
 import '../../../../services/network/network_proxy.dart';
 import 'settings_section.dart';
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog, M3ESwitch;
 
 class GatewaySettings extends StatelessWidget {
   final VoidCallback onChanged;
@@ -29,7 +30,7 @@ class GatewaySettings extends StatelessWidget {
                 : gateway.enabled
                 ? gateway.baseUrl
                 : l10n.settingsGatewayDescription,
-            trailing: Switch(
+            trailing: Semantics(toggled: gateway.automatic ? (proxy?.gateway.enabled ?? false) : gateway.enabled, child: M3ESwitch(
               value: gateway.automatic
                   ? (proxy?.gateway.enabled ?? false)
                   : gateway.enabled,
@@ -42,7 +43,7 @@ class GatewaySettings extends StatelessWidget {
                         _save(context, gateway.copyWith(enabled: enabled));
                       }
                     },
-            ),
+            )),
             onTap: () => _edit(context, gateway),
           ),
           if (gateway.automatic)
@@ -118,9 +119,9 @@ class _GatewayDialogState extends State<_GatewayDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return AlertDialog(
-      title: Text(l10n.settingsGateway),
-      content: SizedBox(
+    return M3EDialog(
+      title: l10n.settingsGateway,
+      content: Material(type: MaterialType.transparency, child: SizedBox(
         width: 440,
         child: SingleChildScrollView(
           child: Column(
@@ -193,13 +194,13 @@ class _GatewayDialogState extends State<_GatewayDialog> {
             ],
           ),
         ),
-      ),
+      )),
       actions: [
-        TextButton(
+        M3EButton.text(
           onPressed: () => Navigator.pop(context),
           child: Text(l10n.commonCancel),
         ),
-        FilledButton(
+        M3EButton.filled(
           onPressed: () {
             String countries;
             try {
@@ -225,7 +226,6 @@ class _GatewayDialogState extends State<_GatewayDialog> {
           },
           child: Text(l10n.settingsApply),
         ),
-      ],
-    );
+      ]);
   }
 }
