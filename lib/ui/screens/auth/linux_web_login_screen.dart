@@ -12,6 +12,7 @@ import '../../../services/auth/web_token_service.dart';
 import '../../../services/eme/chrome/linux_chrome.dart';
 import '../../widgets/toast/app_toast.dart';
 import 'web_login_screen.dart' show WebLoginResult;
+import '../../widgets/flutify_progress.dart';
 
 /// Linux 全曲播放 Web 登录：没有内嵌 WebView，改用一个受管理的系统 Chrome
 /// 打开 Spotify 官方登录页，用户在窗口里登录后，App 经 CDP 读取 HttpOnly 的
@@ -134,7 +135,7 @@ class _LinuxWebLoginScreenState extends State<LinuxWebLoginScreen> {
       ),
       body: Column(
         children: [
-          if (_busy) const LinearProgressIndicator(minHeight: 2),
+          if (_busy) const FlutifyLinearProgress(thickness: 4),
           Expanded(
             child: Center(
               child: Padding(

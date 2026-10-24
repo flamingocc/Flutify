@@ -23,6 +23,7 @@ import '../../widgets/filter_pill.dart';
 import '../../widgets/skeleton.dart';
 import '../../widgets/track_tile.dart';
 import '../detail/widgets/collection_widgets.dart';
+import '../../widgets/flutify_progress.dart';
 
 /// 搜索页：浏览分类 / 最近搜索 / 多类型搜索结果。
 ///
@@ -522,7 +523,7 @@ class _SearchPageControl extends StatelessWidget {
         child: Center(
           child: SizedBox.square(
             dimension: 24,
-            child: CircularProgressIndicator(
+            child: FlutifySpinner(
               key: ValueKey('search-loading-${type.name}'),
               semanticsLabel: l10n.commonLoadMore,
             ),

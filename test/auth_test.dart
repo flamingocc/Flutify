@@ -28,13 +28,6 @@ void main() {
     accountsRequests = [];
   });
 
-  /// 把消息按字段号分组，便于断言。
-  Map<int, List<ProtoField>> fieldsOf(List<int> bytes) {
-    final map = <int, List<ProtoField>>{};
-    ProtoReader(Uint8List.fromList(bytes)).forEach((f) => map.putIfAbsent(f.number, () => []).add(f));
-    return map;
-  }
-
   Uint8List grantedClientToken() {
     final granted = ProtoWriter()
       ..string(1, 'fake-client-token')

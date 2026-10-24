@@ -6,8 +6,9 @@ import '../../../../providers/preferences_provider.dart';
 import '../../../../services/network/spotify_gateway.dart';
 import '../../../../services/network/network_proxy.dart';
 import 'settings_section.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog, M3ESwitch;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3ESwitch;
 import '../../../widgets/flutify_dialog.dart';
+import '../../../widgets/flutify_progress.dart';
 
 class GatewaySettings extends StatelessWidget {
   final VoidCallback onChanged;
@@ -63,7 +64,7 @@ class GatewaySettings extends StatelessWidget {
               trailing: proxy?.gatewayChecking == true
                   ? const SizedBox.square(
                       dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: FlutifySpinner(),
                     )
                   : IconButton(
                       tooltip: l10n.settingsGatewayRecheck,

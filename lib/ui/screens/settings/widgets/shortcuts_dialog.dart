@@ -4,7 +4,7 @@ import '../../../../core/theme/flutify_tokens.dart';
 import '../../../../l10n/l10n.dart';
 import '../../../widgets/keyboard_shortcuts.dart';
 import '../../../widgets/track_menu.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
 import '../../../widgets/flutify_dialog.dart';
 
 /// 键盘快捷键一览（设置页「关于」）。

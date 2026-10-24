@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../l10n/l10n.dart';
 import 'gradient_track_slider.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
 import '../../../widgets/flutify_dialog.dart';
 
 /// 自定义强调色对话框：色相 / 饱和度 / 亮度三条渐变滑杆 + 十六进制输入 + 大色块预览。

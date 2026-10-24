@@ -7,8 +7,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../l10n/l10n.dart';
 import '../../services/updates/update_release.dart';
 import '../../services/updates/update_service.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle, M3EDialog;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
 import 'flutify_dialog.dart';
+import 'flutify_progress.dart';
 
 Future<void> showUpdateDialog(BuildContext context, UpdateService service) => showDialog<void>(
   context: context,
@@ -89,7 +90,7 @@ class UpdateProgress extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(downloading ? context.l10n.updatesDownloading : context.l10n.updatesInstalling),
         const SizedBox(height: 8),
-        LinearProgressIndicator(value: downloading ? service.progress : null, borderRadius: BorderRadius.circular(8)),
+        FlutifyLinearProgress(value: downloading ? service.progress : null),
         if (downloading) Text('${(service.received / 1048576).toStringAsFixed(1)} / ${(service.total / 1048576).toStringAsFixed(1)} MB'),
       ]),
     );

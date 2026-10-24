@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../../l10n/l10n.dart';
-import '../../../services/auth/web_token_service.dart';
 import '../../shell/shell_breakpoints.dart';
 import 'sections/external_lyrics_section.dart';
 import 'sections/about_section.dart';

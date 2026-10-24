@@ -16,6 +16,7 @@ import '../../../widgets/toast/app_toast.dart';
 import '../../auth/backup_account_login_screen.dart';
 import '../widgets/settings_section.dart';
 import '../../../widgets/flutify_dialog.dart';
+import '../../../widgets/flutify_progress.dart';
 
 /// 设置页「歌单备份」分组：
 /// - 显示各个备份账号各自的「已点赞的歌曲」（点击直接查看该账号的已点赞歌曲，不会跳去本机账号）；
@@ -261,7 +262,7 @@ class _BackupSectionState extends State<BackupSection> {
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: FlutifySpinner(),
                     )
                   : const Icon(Icons.person_add_alt_1_rounded),
               onTap: backingUp
@@ -305,7 +306,7 @@ class _BackupSectionState extends State<BackupSection> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Checkbox(
+                        M3ECheckbox(
                           value: allSelected,
                           onChanged: (_) {
                             setState(() {
@@ -457,7 +458,7 @@ class _BackedUpPlaylistTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            Checkbox(value: selected, onChanged: onSelectedChanged),
+            M3ECheckbox(value: selected, onChanged: onSelectedChanged),
             const SizedBox(width: 4),
             if (isLiked)
               Container(
@@ -465,11 +466,7 @@ class _BackedUpPlaylistTile extends StatelessWidget {
                 height: 48,
                 decoration: BoxDecoration(
                   borderRadius: context.tokens.radius(8),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF450AF5), Color(0xFFC4EFD9)],
-                  ),
+                  gradient: kLikedSongsGradient,
                 ),
                 child: const Icon(
                   Icons.favorite_rounded,
@@ -610,9 +607,19 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
                 itemBuilder: (context, index) {
                   final track = tracks[index];
                   final checked = _selectedIds.contains(track.id);
-                  return CheckboxListTile(
-                    value: checked,
-                    controlAffinity: ListTileControlAffinity.leading,
+                  void toggle(bool? v) {
+                    setState(() {
+                      if (v == true) {
+                        _selectedIds.add(track.id);
+                      } else {
+                        _selectedIds.remove(track.id);
+                      }
+                    });
+                  }
+
+                  return ListTile(
+                    leading: M3ECheckbox(value: checked, onChanged: toggle),
+                    onTap: () => toggle(!checked),
                     title: Text(
                       track.name,
                       maxLines: 1,
@@ -623,15 +630,6 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    onChanged: (v) {
-                      setState(() {
-                        if (v == true) {
-                          _selectedIds.add(track.id);
-                        } else {
-                          _selectedIds.remove(track.id);
-                        }
-                      });
-                    },
                   );
                 },
               ),

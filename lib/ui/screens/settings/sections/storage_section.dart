@@ -18,6 +18,7 @@ import '../widgets/settings_segmented.dart';
 import '../../../widgets/toast/app_toast.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
 import '../../../widgets/flutify_dialog.dart';
+import '../../../widgets/flutify_progress.dart';
 
 /// 存储：音频缓存占用、缓存上限、一键清除。
 ///
@@ -255,7 +256,7 @@ class _StorageSectionState extends State<StorageSection> {
             trailing: _clearing
                 ? const SizedBox.square(
                     dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: FlutifySpinner(),
                   )
                 : const Icon(Icons.cleaning_services_rounded),
             onTap: _clearing ? null : () => _clearAll(location),
@@ -290,7 +291,7 @@ class _StorageSectionState extends State<StorageSection> {
             trailing: _clearing
                 ? const SizedBox.square(
                     dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: FlutifySpinner(),
                   )
                 : Icon(
                     Icons.delete_sweep_rounded,
@@ -479,14 +480,11 @@ class _UsageBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(3),
-      child: LinearProgressIndicator(
-        value: fraction,
-        minHeight: 6,
-        backgroundColor: colorScheme.surfaceContainerHighest,
-        color: fraction > 0.9 ? colorScheme.error : colorScheme.primary,
-      ),
+    return FlutifyLinearProgress(
+      value: fraction,
+      thickness: 6,
+      trackColor: colorScheme.surfaceContainerHighest,
+      color: fraction > 0.9 ? colorScheme.error : colorScheme.primary,
     );
   }
 }

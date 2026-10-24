@@ -18,6 +18,7 @@ import '../../shell/shell_breakpoints.dart';
 import '../../widgets/connect/connect_actions.dart';
 import '../../widgets/connect/connect_device_icon.dart';
 import '../../widgets/connect/equalizer_bars.dart';
+import '../../widgets/flutify_progress.dart';
 
 /// 「连接到设备」面板（Spotify Connect 遥控）。
 ///
@@ -407,7 +408,7 @@ class _StatusLine extends StatelessWidget {
         SizedBox.square(
           dimension: 14,
           child: busy
-              ? const CircularProgressIndicator(strokeWidth: 2)
+              ? const FlutifySpinner()
               : Icon(
                   Icons.cloud_off_rounded,
                   size: 14,
@@ -747,7 +748,7 @@ class _LocalOutputSectionState extends State<_LocalOutputSection> {
                     padding: EdgeInsets.only(top: 14),
                     child: SizedBox.square(
                       dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: FlutifySpinner(),
                     ),
                   ),
               ],

@@ -211,7 +211,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     return CollectionTintScope(
       imageUrl: (isLikedSongs || isBackupLikedSongs) ? '' : playlist.coverUrl,
       fallback: (isLikedSongs || isBackupLikedSongs)
-          ? const Color(0xFF4A2FB8)
+          ? kLikedSongsTint
           : const Color(0xFF3A3A48),
       child: CustomScrollView(
         slivers: [
@@ -535,7 +535,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.only(left: 12),
-            child: Checkbox(
+            child: M3ECheckbox(
               value: selected,
               onChanged: (v) {
                 setState(() {
@@ -647,11 +647,7 @@ class _LikedSongsCover extends StatelessWidget {
       height: 180,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF450AF5), Color(0xFF8E8EE5), Color(0xFFC4EFD9)],
-        ),
+        gradient: kLikedSongsGradient,
       ),
       child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 72),
     );

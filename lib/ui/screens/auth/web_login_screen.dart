@@ -15,6 +15,7 @@ import '../../../services/eme/eme_player.dart';
 import '../../shell/desktop/desktop_window.dart';
 import 'linux_web_login_screen.dart';
 import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
+import '../../widgets/flutify_progress.dart';
 
 export '../../../services/auth/web_login_flow.dart' show WebLoginStage;
 
@@ -383,7 +384,7 @@ class _WebLoginScreenState extends State<WebLoginScreen> {
       body: Column(
         children: [
           if (stage != WebLoginStage.done)
-            const LinearProgressIndicator(minHeight: 2),
+            const FlutifyLinearProgress(thickness: 4),
           if (stage == WebLoginStage.webSignIn) const _GoogleAccountHint(),
           if (_flow.notice != null)
             _NoticeBar(text: _flow.notice!, icon: Icons.info_outline_rounded),
@@ -481,11 +482,7 @@ class _ProgressOverlay extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(
-              width: 48,
-              height: 48,
-              child: CircularProgressIndicator(strokeWidth: 4),
-            ),
+            const FlutifyLoadingIndicator(),
             const SizedBox(height: 24),
             Text(
               text,
@@ -583,7 +580,7 @@ class _RegionBlockedView extends StatelessWidget {
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: FlutifySpinner(),
                           )
                         : const Icon(Icons.refresh_rounded),
                     label: Text(
