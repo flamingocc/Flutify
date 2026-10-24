@@ -1014,13 +1014,21 @@ async function applySink(el) {
   let id = '';
   if (pageSinkLabel) {
     try {
-      const outs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audiooutput');
-      // Chromium 另给出「默认值 - xxx」「通信 - xxx」两个别名项，按原名精确匹配优先
-      const hit = outs.find((d) => d.label === pageSinkLabel)
-        || outs.find((d) => d.label && d.deviceId !== 'default' && d.deviceId !== 'communications'
-          && (d.label.includes(pageSinkLabel) || pageSinkLabel.includes(d.label)));
+      // 只取输出设备，并去掉 Chromium 给出的「默认值 - xxx」「通信 - xxx」两个别名项
+      const outs = (await navigator.mediaDevices.enumerateDevices()).filter((d) =>
+        d.kind === 'audiooutput' && d.deviceId !== 'default' && d.deviceId !== 'communications');
+      // 1) 完整名称精确匹配
+      let hit = outs.find((d) => d.label === pageSinkLabel);
+      // 2) 兜底：系统与 libmpv 的设备名写法略有出入时，比较括号里的硬件名（如「(Realtek(R) Audio)」）；
+      //   只有唯一命中才用，同一声卡有多个输出时宁可回落系统默认也不切错
+      if (!hit) {
+        const hw = (t) => { const i = t.indexOf('('); return i >= 0 ? t.slice(i).trim() : ''; };
+        const key = hw(pageSinkLabel);
+        const same = key ? outs.filter((d) => hw(d.label) === key) : [];
+        if (same.length === 1) hit = same[0];
+      }
       if (hit) id = hit.deviceId;
-      else send('log', {msg: '输出设备未找到（可见 ' + outs.length + ' 个，' + (outs.some((d) => d.label) ? '有' : '无') + '设备名），使用系统默认'});
+      else send('log', {msg: '输出设备未唯一匹配（可选 ' + outs.length + ' 个），使用系统默认'});
     } catch (e) {
       send('log', {msg: '枚举输出设备失败: ' + e});
     }
