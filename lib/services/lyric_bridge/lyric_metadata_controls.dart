@@ -74,6 +74,8 @@ class LyricMetadataControls implements SystemMediaControls {
       _isFlyme = false;
     }
     flyme.value = _isFlyme;
+    // 检测是异步的：开着 Flyme 状态栏歌词时，检测完成才知道需要歌词，这里补取
+    _loadLyrics();
     _refresh();
   }
 

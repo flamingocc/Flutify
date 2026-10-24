@@ -64,7 +64,8 @@ class AudioOutputService extends ChangeNotifier {
     this.onSelected,
     this.labelSink,
   })
-    : _selected = initial {
+    : _selected = initial,
+      _preferred = initial {
     if (initial.isNotEmpty) {
       unawaited(_apply(initial));
       // EME 需要设备名：启动时列一次设备，解析出名字后下发
@@ -78,6 +79,10 @@ class AudioOutputService extends ChangeNotifier {
 
   List<AudioOutputDevice> _devices = const [];
   String _selected;
+
+  /// 用户选择（持久化）。设备暂时不在（如 USB 声卡没插）时 [_selected] 临时回落系统默认，
+  /// 偏好保留，设备重新出现时自动切回。
+  String _preferred;
   bool _loading = false;
 
   /// 可选设备（不含「系统默认」，界面单独显示）。
@@ -88,7 +93,8 @@ class AudioOutputService extends ChangeNotifier {
 
   bool get loading => _loading;
 
-  /// 重新列出设备（打开设备面板时调用）。选中的设备已拔出时回落到系统默认。
+  /// 重新列出设备（打开设备面板时调用）。选中的设备暂时不在时本次回落系统默认（不改偏好），
+  /// 重新出现时切回。
   Future<void> refresh() async {
     if (_loading) return;
     _loading = true;
@@ -99,11 +105,13 @@ class AudioOutputService extends ChangeNotifier {
       _devices = const [];
     }
     _loading = false;
-    if (_selected.isNotEmpty &&
-        _devices.isNotEmpty &&
-        !_devices.any((d) => d.id == _selected)) {
-      await select('');
-      return;
+    final available = _preferred.isEmpty ||
+        _devices.any((d) => d.id == _preferred);
+    final target = available ? _preferred : '';
+    // 列表为空（枚举失败）时不动当前输出
+    if (_devices.isNotEmpty && target != _selected) {
+      _selected = target;
+      await _apply(target);
     }
     _sendLabel();
     notifyListeners();
@@ -126,8 +134,9 @@ class AudioOutputService extends ChangeNotifier {
   }
 
   Future<void> select(String id) async {
-    if (id == _selected) return;
+    if (id == _selected && id == _preferred) return;
     _selected = id;
+    _preferred = id;
     notifyListeners();
     onSelected?.call(id);
     _sendLabel();

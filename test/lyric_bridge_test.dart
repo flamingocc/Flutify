@@ -220,18 +220,23 @@ void main() {
   });
 
   group('AudioOutputService', () {
-    test('falls back to system default when the saved device is gone', () async {
+    test('missing saved device: default for now, preference kept, restored when back', () async {
       final backend = _Outputs([const AudioOutputDevice('a', 'Speakers')]);
       String? saved;
       final service = AudioOutputService(
         backend,
-        initial: 'gone',
+        initial: 'usb',
         onSelected: (id) => saved = id,
       );
       await service.refresh();
       expect(service.selected, '');
-      expect(saved, '');
+      expect(saved, isNull, reason: '设备暂时不在不应改写用户偏好');
       expect(backend.selected.last, '');
+
+      backend.devices.add(const AudioOutputDevice('usb', 'USB DAC'));
+      await service.refresh();
+      expect(service.selected, 'usb');
+      expect(backend.selected.last, 'usb');
     });
 
     test('select applies and persists', () async {
@@ -246,7 +251,7 @@ void main() {
 }
 
 class _Outputs implements AudioOutputBackend {
-  _Outputs(this.devices);
+  _Outputs(List<AudioOutputDevice> devices) : devices = [...devices];
 
   final List<AudioOutputDevice> devices;
   final selected = <String>[];
