@@ -27,7 +27,8 @@ pub struct HttpResponse {
 /// `timeout:` / `request:` 表示请求可能已发出，不应自动重试。
 pub type HttpResult = Result<HttpResponse, String>;
 
-fn runtime() -> &'static Runtime {
+/// 网络任务共用的 tokio 运行时（HTTP / 下载 / WebSocket）。
+pub fn runtime() -> &'static Runtime {
     static RUNTIME: OnceLock<Runtime> = OnceLock::new();
     RUNTIME.get_or_init(|| {
         tokio::runtime::Builder::new_multi_thread()
@@ -39,7 +40,8 @@ fn runtime() -> &'static Runtime {
     })
 }
 
-fn client() -> &'static reqwest::Client {
+/// 共享的 reqwest 客户端（同一连接池；HTTP/2 下同主机共用一条连接）。
+pub fn shared_client() -> &'static reqwest::Client {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
         reqwest::Client::builder()
@@ -73,7 +75,7 @@ async fn execute(
 ) -> HttpResult {
     let method = reqwest::Method::from_bytes(method.as_bytes())
         .map_err(|e| format!("connect:bad method: {e}"))?;
-    let mut request = client()
+    let mut request = shared_client()
         .request(method, &url)
         .timeout(Duration::from_millis(timeout_ms.max(1)));
     for header in headers {
