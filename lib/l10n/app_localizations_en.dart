@@ -2023,4 +2023,77 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsAnimDebugBackgroundSubtitle =>
       'The lyrics background stays on a still frame';
+
+  @override
+  String get settingsExternalLyricsSection => 'Car & status bar lyrics';
+
+  @override
+  String get settingsBluetoothLyrics => 'Bluetooth lyrics';
+
+  @override
+  String get settingsBluetoothLyricsSubtitle =>
+      'While a Bluetooth audio device is connected, the media title shows the current lyric line and artist/album show \"Song - Artist\", so car displays show lyrics line by line';
+
+  @override
+  String get bluetoothLyricsOff => 'Off';
+
+  @override
+  String get bluetoothLyricsCar => 'Car devices';
+
+  @override
+  String get bluetoothLyricsAll => 'All devices';
+
+  @override
+  String get settingsBluetoothLyricsTranslation => 'Include translation';
+
+  @override
+  String get settingsBluetoothLyricsTranslationSubtitle =>
+      'When a translation exists, the title shows \"Original / Translation\"';
+
+  @override
+  String get settingsBluetoothPermission => 'Allow Bluetooth device detection';
+
+  @override
+  String get settingsBluetoothPermissionSubtitle =>
+      'Detecting car devices needs the \"Nearby devices\" permission';
+
+  @override
+  String get settingsBluetoothPermissionGrant => 'Allow';
+
+  @override
+  String get settingsBluetoothDevices => 'Connected Bluetooth devices';
+
+  @override
+  String get settingsBluetoothDevicesEmpty =>
+      'No Bluetooth audio device connected';
+
+  @override
+  String get bluetoothDeviceUnnamed => 'Unnamed device';
+
+  @override
+  String get bluetoothDeviceCar =>
+      'Recognized as a car device; lyrics shown automatically';
+
+  @override
+  String get bluetoothDeviceAll =>
+      'Lyrics shown automatically in all-devices mode';
+
+  @override
+  String get bluetoothDeviceManual => 'Also show lyrics on this device';
+
+  @override
+  String get settingsFlymeLyrics => 'Flyme status bar lyrics';
+
+  @override
+  String get settingsFlymeLyricsSubtitle =>
+      'Show the current lyric line in the Meizu Flyme status bar while playing';
+
+  @override
+  String get audioOutputTitle => 'Audio output on this device';
+
+  @override
+  String get audioOutputSystemDefault => 'System default';
+
+  @override
+  String get audioOutputSelected => 'Playing here';
 }

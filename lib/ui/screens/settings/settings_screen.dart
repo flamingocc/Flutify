@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../l10n/l10n.dart';
 import '../../../services/auth/web_token_service.dart';
 import '../../shell/shell_breakpoints.dart';
+import 'sections/external_lyrics_section.dart';
 import 'sections/about_section.dart';
 import 'sections/update_section.dart';
 import 'sections/accent_section.dart';
@@ -60,6 +61,7 @@ const List<Widget> _singleColumn = [
   PlaybackSection(),
   LyricsSection(),
   TaskbarLyricsSection(),
+  ExternalLyricsSection(),
   AppearanceSection(),
   AccentSection(),
   GlassSection(),
@@ -139,6 +141,7 @@ class _DesktopSettings extends StatelessWidget {
                           const MotionSection(),
                           const LyricsSection(),
                           const TaskbarLyricsSection(),
+                          const ExternalLyricsSection(),
                           const LanguageSection(),
                           const NetworkSection(),
                           const RegionCheckSection(),

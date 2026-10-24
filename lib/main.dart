@@ -92,6 +92,10 @@ import 'ui/widgets/dynamic_accent_sync.dart';
 import 'ui/widgets/automatic_gateway_binding.dart';
 import 'ui/widgets/playback_session_keeper.dart';
 import 'ui/widgets/taskbar_lyrics_binding.dart';
+import 'ui/widgets/lyric_bridge_binding.dart';
+import 'services/audio/audio_output_service.dart';
+import 'services/lyric_bridge/lyric_bridge_channel.dart';
+import 'services/lyric_bridge/lyric_metadata_controls.dart';
 import 'ui/widgets/update_prompt.dart';
 
 Future<void> main() async {
@@ -261,9 +265,14 @@ Future<Widget> _initializeApp(ValueChanged<String> reportStage) async {
   final taskbarLyrics = Platform.isWindows
       ? TaskbarLyricsControls(MethodChannelTaskbarLyrics())
       : null;
+  // Android：蓝牙（车机）歌词与 Flyme 状态栏歌词包在通知栏媒体控制外面
+  final lyricBridge = Platform.isAndroid && systemControls != null
+      ? LyricMetadataControls(systemControls, MethodChannelLyricBridge())
+      : null;
+  final baseControls = lyricBridge ?? systemControls;
   final mediaControls = taskbarLyrics == null
-      ? systemControls
-      : MultiMediaControls([?systemControls, taskbarLyrics]);
+      ? baseControls
+      : MultiMediaControls([?baseControls, taskbarLyrics]);
 
   // 歌词补全：Spotify 没有逐行同步歌词时查 LRCLIB，选中的歌词缓存在应用数据目录
   final lyricsFallback = LrclibLyricsSource(
@@ -356,6 +365,7 @@ Future<Widget> _initializeApp(ValueChanged<String> reportStage) async {
     lyricsTranslation: lyricsTranslation,
     qqLyricsTranslation: qqLyricsTranslation,
     taskbarLyrics: taskbarLyrics,
+    lyricBridge: lyricBridge,
     playbackRegionGate: playbackRegionGate,
     updateService: UpdateService(
       storage: storageService,
@@ -405,6 +415,9 @@ class FlutifyApp extends StatelessWidget {
   /// 任务栏歌词（Windows）；已包含在 [mediaControls] 里，这里供界面层绑定设置与歌词来源。
   final TaskbarLyricsControls? taskbarLyrics;
 
+  /// 蓝牙（车机）歌词 / Flyme 状态栏歌词（Android）；已包含在 [mediaControls] 里，这里供界面层绑定。
+  final LyricMetadataControls? lyricBridge;
+
   /// 起播前的网络出口地区门控；为空时不做地区检测（测试默认）。
   ///
   /// 由 main 创建、和 PlaybackProvider / AutomaticGatewayBinding 共用同一个实例：
@@ -429,6 +442,7 @@ class FlutifyApp extends StatelessWidget {
     this.lyricsTranslation,
     this.qqLyricsTranslation,
     this.taskbarLyrics,
+    this.lyricBridge,
     this.playbackRegionGate,
     this.updateService,
   });
@@ -565,7 +579,23 @@ class FlutifyApp extends StatelessWidget {
             return spotify;
           },
         ),
+        // 畅联「本机音频设备」：Windows / Linux（libmpv）可切换本机输出设备，启动即恢复上次的选择
+        ChangeNotifierProvider<AudioOutputService?>(
+          lazy: false,
+          create: (context) {
+            if (!AudioOutputService.platformSupported) return null;
+            final preferences = context.read<PreferencesProvider>();
+            return AudioOutputService(
+              MediaKitAudioOutputBackend(),
+              initial: preferences.prefs.audioOutputDevice,
+              onSelected: (id) => preferences.update(
+                preferences.prefs.copyWith(audioOutputDevice: id),
+              ),
+            );
+          },
+        ),
         Provider<TaskbarLyricsControls?>.value(value: taskbarLyrics),
+        Provider<LyricMetadataControls?>.value(value: lyricBridge),
         // 设置页「存储」分组：音频缓存占用 / 上限 / 清除
         Provider<AudioCacheStore?>.value(
           value: trackAudioLoader is AudioCacheStore
@@ -878,7 +908,9 @@ class _ThemedApp extends StatelessWidget {
                     onPointerDown: _onMouseNavigation,
                     child: MacMenuBar(
                       child: TaskbarLyricsBinding(
-                        child: WindowFrame(child: child!),
+                        child: LyricBridgeBinding(
+                          child: WindowFrame(child: child!),
+                        ),
                       ),
                     ),
                   ),

@@ -3640,6 +3640,138 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'歌词背景停在静态画面'**
   String get settingsAnimDebugBackgroundSubtitle;
+
+  /// No description provided for @settingsExternalLyricsSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'车机与状态栏歌词'**
+  String get settingsExternalLyricsSection;
+
+  /// No description provided for @settingsBluetoothLyrics.
+  ///
+  /// In zh, this message translates to:
+  /// **'蓝牙歌词'**
+  String get settingsBluetoothLyrics;
+
+  /// No description provided for @settingsBluetoothLyricsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接蓝牙音频设备时，把媒体信息的标题换成当前歌词行，艺人与专辑换成「歌名 - 艺人」，车机屏幕即可逐句显示歌词'**
+  String get settingsBluetoothLyricsSubtitle;
+
+  /// No description provided for @bluetoothLyricsOff.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭'**
+  String get bluetoothLyricsOff;
+
+  /// No description provided for @bluetoothLyricsCar.
+  ///
+  /// In zh, this message translates to:
+  /// **'车载设备'**
+  String get bluetoothLyricsCar;
+
+  /// No description provided for @bluetoothLyricsAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'所有设备'**
+  String get bluetoothLyricsAll;
+
+  /// No description provided for @settingsBluetoothLyricsTranslation.
+  ///
+  /// In zh, this message translates to:
+  /// **'附带译文'**
+  String get settingsBluetoothLyricsTranslation;
+
+  /// No description provided for @settingsBluetoothLyricsTranslationSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'有译文时标题显示为「原文 / 译文」'**
+  String get settingsBluetoothLyricsTranslationSubtitle;
+
+  /// No description provided for @settingsBluetoothPermission.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许识别蓝牙设备'**
+  String get settingsBluetoothPermission;
+
+  /// No description provided for @settingsBluetoothPermissionSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'识别车载设备需要「附近的设备」权限'**
+  String get settingsBluetoothPermissionSubtitle;
+
+  /// No description provided for @settingsBluetoothPermissionGrant.
+  ///
+  /// In zh, this message translates to:
+  /// **'授权'**
+  String get settingsBluetoothPermissionGrant;
+
+  /// No description provided for @settingsBluetoothDevices.
+  ///
+  /// In zh, this message translates to:
+  /// **'已连接的蓝牙设备'**
+  String get settingsBluetoothDevices;
+
+  /// No description provided for @settingsBluetoothDevicesEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前没有连接蓝牙音频设备'**
+  String get settingsBluetoothDevicesEmpty;
+
+  /// No description provided for @bluetoothDeviceUnnamed.
+  ///
+  /// In zh, this message translates to:
+  /// **'未命名设备'**
+  String get bluetoothDeviceUnnamed;
+
+  /// No description provided for @bluetoothDeviceCar.
+  ///
+  /// In zh, this message translates to:
+  /// **'已识别为车载设备，自动显示歌词'**
+  String get bluetoothDeviceCar;
+
+  /// No description provided for @bluetoothDeviceAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'所有设备模式下自动显示歌词'**
+  String get bluetoothDeviceAll;
+
+  /// No description provided for @bluetoothDeviceManual.
+  ///
+  /// In zh, this message translates to:
+  /// **'在此设备上也显示歌词'**
+  String get bluetoothDeviceManual;
+
+  /// No description provided for @settingsFlymeLyrics.
+  ///
+  /// In zh, this message translates to:
+  /// **'Flyme 状态栏歌词'**
+  String get settingsFlymeLyrics;
+
+  /// No description provided for @settingsFlymeLyricsSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放时在魅族 Flyme 的状态栏显示当前歌词行'**
+  String get settingsFlymeLyricsSubtitle;
+
+  /// No description provided for @audioOutputTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机音频设备'**
+  String get audioOutputTitle;
+
+  /// No description provided for @audioOutputSystemDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统默认设备'**
+  String get audioOutputSystemDefault;
+
+  /// No description provided for @audioOutputSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在输出'**
+  String get audioOutputSelected;
 }
 
 class _AppLocalizationsDelegate

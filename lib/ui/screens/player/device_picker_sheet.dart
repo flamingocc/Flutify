@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -5,6 +7,7 @@ import '../../../core/theme/flutify_tokens.dart';
 import '../../../l10n/l10n.dart';
 import '../../../providers/connect_provider.dart';
 import '../../../providers/playback_provider.dart';
+import '../../../services/audio/audio_output_service.dart';
 import '../../../services/connect/connect_service.dart' show ConnectStatus;
 import '../../shell/shell_breakpoints.dart';
 import '../../widgets/connect/connect_actions.dart';
@@ -84,6 +87,9 @@ class DevicePickerSheet extends StatelessWidget {
                 )
               else
                 _DeviceList(connect: connect),
+              // 本机播放时可切换本机音频输出设备（远程设备在放时不相关）
+              if (!(connect?.hasRemoteSession ?? false))
+                const _LocalOutputSection(),
             ],
           ),
         ),
@@ -305,14 +311,18 @@ class _RemoteVolume extends StatelessWidget {
 class _DeviceTile extends StatelessWidget {
   final IconData icon;
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final VoidCallback onTap;
+
+  /// 选中态（本机输出设备）：徽章换强调色。
+  final bool selected;
 
   const _DeviceTile({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.selected = false,
   });
 
   @override
@@ -331,13 +341,17 @@ class _DeviceTile extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
+                color: selected
+                    ? theme.colorScheme.primaryContainer
+                    : theme.colorScheme.surfaceContainerHighest,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
                 size: 20,
-                color: theme.colorScheme.onSurfaceVariant,
+                color: selected
+                    ? theme.colorScheme.onPrimaryContainer
+                    : theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(width: 14),
@@ -351,16 +365,18 @@ class _DeviceTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w700,
+                      color: selected ? theme.colorScheme.primary : null,
                     ),
                   ),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -614,5 +630,101 @@ class _InlineRow extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 「本机音频设备」：本机正在播放时，在设备面板里切换输出到哪个扬声器 / 耳机（Spotify 桌面端同款）。
+/// 没有 [AudioOutputService]（不支持的平台、测试）时不显示。
+class _LocalOutputSection extends StatefulWidget {
+  const _LocalOutputSection();
+
+  @override
+  State<_LocalOutputSection> createState() => _LocalOutputSectionState();
+}
+
+class _LocalOutputSectionState extends State<_LocalOutputSection> {
+  @override
+  void initState() {
+    super.initState();
+    // 每次打开面板重新列出设备（可能刚插上耳机）
+    final service = _read(context);
+    if (service != null) unawaited(service.refresh());
+  }
+
+  static AudioOutputService? _read(BuildContext context) {
+    try {
+      return context.read<AudioOutputService?>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_read(context) == null) return const SizedBox.shrink();
+    final service = context.watch<AudioOutputService?>()!;
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final options = [
+      AudioOutputDevice.systemDefault,
+      ...service.devices,
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 20),
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l10n.audioOutputTitle,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (service.loading)
+                const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+        ),
+        for (final device in options)
+          _DeviceTile(
+            icon: device.isSystemDefault
+                ? Icons.settings_suggest_rounded
+                : _outputIcon(device.label),
+            title: device.isSystemDefault
+                ? l10n.audioOutputSystemDefault
+                : device.label,
+            subtitle: device.id == service.selected
+                ? l10n.audioOutputSelected
+                : null,
+            selected: device.id == service.selected,
+            onTap: () => unawaited(service.select(device.id)),
+          ),
+      ],
+    );
+  }
+
+  /// 按设备名粗略区分耳机 / 扬声器图标。
+  static IconData _outputIcon(String label) {
+    final name = label.toLowerCase();
+    if (name.contains('headphone') ||
+        name.contains('headset') ||
+        name.contains('耳机') ||
+        name.contains('airpods') ||
+        name.contains('buds')) {
+      return Icons.headphones_rounded;
+    }
+    if (name.contains('hdmi') || name.contains('display')) {
+      return Icons.tv_rounded;
+    }
+    return Icons.speaker_rounded;
   }
 }
