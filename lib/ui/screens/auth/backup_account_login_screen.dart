@@ -1,3 +1,4 @@
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
@@ -358,7 +359,7 @@ return '';
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const CircularProgressIndicator(),
+                  const M3ELoadingIndicator(),
                   const SizedBox(height: 16),
                   Text(l10n.webLoginRegionChecking),
                 ],
@@ -392,7 +393,7 @@ return '';
               ),
             )
           : !_envReady
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: M3ELoadingIndicator())
           : InAppWebView(
               webViewEnvironment: _environment,
               initialUrlRequest: URLRequest(url: WebUri(_loginUrl)),

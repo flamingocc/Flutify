@@ -107,6 +107,8 @@ void main() {
       300,
       scrollable: scrollable,
     );
+    await tester.ensureVisible(find.text('方正'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('方正'));
     await settle(tester);
     expect(settingsContext(tester).tokens.squareCorners, isTrue);

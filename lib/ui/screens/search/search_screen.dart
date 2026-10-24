@@ -1,3 +1,4 @@
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -333,7 +334,7 @@ class _SearchResults extends StatelessWidget {
     final spotify = context.watch<SpotifyProvider>();
     final l10n = context.l10n;
     if (spotify.isSearching) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: M3ELoadingIndicator());
     }
     if (spotify.searchError != null) {
       if (spotify.searchRequiresSignIn) {

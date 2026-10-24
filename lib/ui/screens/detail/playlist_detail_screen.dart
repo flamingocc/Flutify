@@ -561,8 +561,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24),
-        color: Colors.redAccent,
-        child: const Icon(Icons.delete_rounded, color: Colors.white),
+        color: Theme.of(context).colorScheme.errorContainer,
+        child: Icon(Icons.delete_rounded, color: Theme.of(context).colorScheme.onErrorContainer),
       ),
       onDismissed: (_) => context
           .read<LibraryProvider>()

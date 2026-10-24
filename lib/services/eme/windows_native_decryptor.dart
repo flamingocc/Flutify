@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 
+import '../../core/rust_core.dart';
 import '../audio/audio_engine.dart';
 import '../protocol/progressive_download.dart';
 import 'cenc_audio.dart';
@@ -72,7 +73,12 @@ class WindowsNativeDecryptor implements NativeAudioDecryptor {
         throw const CdmException('file_too_large');
       final encrypted = await file.readAsBytes();
       check();
-      final audio = CencAudio.parse(encrypted);
+      // 最大 64MB 的同步解析（含 FFI 拷贝）放到后台 Isolate，避免卡住 UI；
+      // 结果经 Isolate.exit 传回，不再拷贝。
+      final useRust = RustCore.ready;
+      // 用顶层函数 + compute：闭包会捕获整个方法上下文（含不可跨 Isolate 发送的对象）
+      final audio = await compute(_parseCencOffThread, (encrypted, useRust));
+      check();
       final manifestPssh = widevinePsshFromHls(content.m3u8);
       final pssh = manifestPssh ?? audio.pssh;
       debugPrint(
@@ -177,4 +183,10 @@ class NativeMemoryAudio implements ProgressiveAudio {
     bytes.fillRange(0, bytes.length, 0);
     onDispose?.call();
   }
+}
+
+Future<CencAudio> _parseCencOffThread((Uint8List, bool) args) async {
+  final (bytes, useRust) = args;
+  if (useRust) await RustCore.initialize(exitOnFailure: false);
+  return CencAudio.parse(bytes);
 }

@@ -38,6 +38,14 @@ class SpotifyAudioHeader {
   }
 }
 
+/// 下载因没有使用者而被取消（见 [ProgressiveDownload.retain]）。
+class DownloadCancelledException implements Exception {
+  const DownloadCancelledException();
+
+  @override
+  String toString() => '下载已取消';
+}
+
 /// 可边下载边播放的音频（已解密、已去掉私有头的字节流）。
 ///
 /// 播放器通过 [read] 按字节区间取数据：区间内尚未下载到的部分会等待下载推进。
@@ -94,6 +102,46 @@ class ProgressiveDownload implements ProgressiveAudio {
   Uint8List? _normalizationBytes;
   Object? _error;
   bool _started = false;
+
+  /// 使用者计数：见 [retain]。
+  int _holders = 0;
+  bool _cancelled = false;
+  Timer? _cancelTimer;
+
+  /// 没有使用者后等这么久再取消：切歌后马上又点回来 / 同一首重新加载时可以接着用。
+  static const Duration cancelGrace = Duration(seconds: 2);
+
+  /// 已被取消（没有使用者超过 [cancelGrace]）。
+  bool get isCancelled => _cancelled;
+
+  /// 登记一个使用者，返回释放函数（可重复调用，只生效一次）。
+  /// 所有使用者都释放、且下载尚未完成时，宽限期后取消下载，不再占用带宽。
+  void Function() retain() {
+    _holders++;
+    _cancelTimer?.cancel();
+    _cancelTimer = null;
+    var released = false;
+    return () {
+      if (released) return;
+      released = true;
+      _holders--;
+      if (_holders > 0 || _done.isCompleted || _cancelled) return;
+      _cancelTimer?.cancel();
+      _cancelTimer = Timer(cancelGrace, () {
+        _cancelTimer = null;
+        if (_holders == 0 && !_done.isCompleted) cancel();
+      });
+    };
+  }
+
+  /// 立即取消下载：[ready] / [done] 以 [DownloadCancelledException] 结束，不写缓存。
+  void cancel() {
+    if (_cancelled || _done.isCompleted) return;
+    _cancelled = true;
+    _cancelTimer?.cancel();
+    _cancelTimer = null;
+    _fail(const DownloadCancelledException());
+  }
 
   final Completer<void> _ready = Completer<void>();
   final Completer<void> _done = Completer<void>();
@@ -158,12 +206,15 @@ class ProgressiveDownload implements ProgressiveAudio {
     }
     Object? lastError;
     for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      if (_cancelled) return;
       final url = urls[attempt % urls.length];
       try {
         await _fetch(url);
+        if (_cancelled) return;
         _complete();
         return;
       } catch (e) {
+        if (_cancelled) return;
         lastError = e;
       }
     }
@@ -196,6 +247,8 @@ class ProgressiveDownload implements ProgressiveAudio {
     try {
       // 逐块等解密结果再读下一块：顺序天然保证，网络读取也随之形成背压
       await for (final chunk in response.stream) {
+        // 取消：跳出 await for 会取消底层 HTTP 订阅，连接随之关闭
+        if (_cancelled) throw const DownloadCancelledException();
         final data = await decryptor.process(chunk is Uint8List ? chunk : Uint8List.fromList(chunk));
         if (buffer != null) {
           if (pos + data.length > buffer.length) throw StateError('CDN 返回的数据超出声明长度');

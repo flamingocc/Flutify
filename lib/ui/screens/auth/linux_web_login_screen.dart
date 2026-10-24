@@ -1,3 +1,4 @@
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -145,7 +146,7 @@ class _LinuxWebLoginScreenState extends State<LinuxWebLoginScreen> {
                       const SizedBox(
                         width: 64,
                         height: 64,
-                        child: CircularProgressIndicator(),
+                        child: M3ELoadingIndicator(),
                       ),
                       const SizedBox(height: 24),
                       Text(

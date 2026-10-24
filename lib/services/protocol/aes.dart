@@ -193,6 +193,7 @@ class AesCtr {
         );
         data.setAll(0, out);
         _offset += data.length;
+        _syncDartState();
         return;
       } catch (_) {}
     }
@@ -207,6 +208,20 @@ class AesCtr {
     }
     _keystreamPos = pos;
     _offset += data.length;
+  }
+
+  /// Rust 路径只推进 [_offset]；这里把 Dart 侧计数器 / 密钥流对齐到同一位置，
+  /// 之后哪怕某块回退到纯 Dart 实现，解密结果也与从头连续处理一致。
+  void _syncDartState() {
+    _counter.setAll(0, _iv);
+    _addToCounter(_offset ~/ 16);
+    final rem = _offset % 16;
+    if (rem > 0) {
+      _nextKeystreamBlock();
+      _keystreamPos = rem;
+    } else {
+      _keystreamPos = 16;
+    }
   }
 
   /// 已处理的字节数（含 [AesCtr.atOffset] 的起始偏移）。

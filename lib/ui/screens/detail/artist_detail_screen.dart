@@ -1,3 +1,4 @@
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -207,7 +208,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                           if (snap.connectionState != ConnectionState.done)
                             const Padding(
                               padding: EdgeInsets.all(24),
-                              child: Center(child: CircularProgressIndicator()),
+                              child: Center(child: M3ELoadingIndicator()),
                             )
                           else if (snap.hasError)
                             EmptyState(

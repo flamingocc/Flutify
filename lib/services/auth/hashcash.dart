@@ -18,13 +18,16 @@ class Hashcash {
   Hashcash._();
 
   /// 在后台 Isolate 中求解，避免最长 5 秒的 SHA1 循环阻塞 UI 线程。
+  /// Rust 求解同样是同步 FFI 调用，必须放在后台 Isolate 里跑；
+  /// 后台 Isolate 自行加载 Rust 核心，加载失败时回退纯 Dart 实现。
   static Future<Uint8List> solveAsync(List<int> ctx, List<int> prefix, int length) {
-    if (RustCore.ready) {
-      return Future.value(solve(ctx, prefix, length));
-    }
     final ctxCopy = List<int>.of(ctx);
     final prefixCopy = List<int>.of(prefix);
-    return Isolate.run(() => solve(ctxCopy, prefixCopy, length));
+    final useRust = RustCore.ready;
+    return Isolate.run(() async {
+      if (useRust) await RustCore.initialize(exitOnFailure: false);
+      return solve(ctxCopy, prefixCopy, length);
+    });
   }
 
   /// 求解并返回 16 字节 suffix；[timeout] 内无解则抛异常（与官方 5 秒上限一致）。
