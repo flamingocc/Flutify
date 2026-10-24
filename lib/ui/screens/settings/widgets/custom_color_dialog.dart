@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../l10n/l10n.dart';
 import 'gradient_track_slider.dart';
 import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog;
+import '../../../widgets/flutify_dialog.dart';
 
 /// 自定义强调色对话框：色相 / 饱和度 / 亮度三条渐变滑杆 + 十六进制输入 + 大色块预览。
 ///
@@ -60,7 +61,7 @@ class _CustomColorDialogState extends State<CustomColorDialog> {
     final theme = Theme.of(context);
     final color = _hsv.toColor();
 
-    return M3EDialog(
+    return FlutifyDialog(
       title: l10n.settingsCustomColorTitle,
       content: Material(type: MaterialType.transparency, child: SizedBox(
         width: 340,

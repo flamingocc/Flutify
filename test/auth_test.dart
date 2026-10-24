@@ -47,6 +47,21 @@ void main() {
       final url = request.url;
       if (url.host == 'clienttoken.spotify.com') {
         clientTokenRequests.add(request);
+        if (request.headers['Content-Type']?.contains('json') ?? false) {
+          // Web 播放器格式：JSON 响应 granted_token
+          return http.Response(
+            jsonEncode({
+              'response_type': 'RESPONSE_GRANTED_TOKEN_RESPONSE',
+              'granted_token': {
+                'token': 'fake-client-token',
+                'expires_after_seconds': 1209600,
+                'refresh_after_seconds': 1209600,
+                'domains': [{'domain': 'spotify.com'}],
+              },
+            }),
+            200,
+          );
+        }
         return http.Response.bytes(grantedClientToken(), 200);
       }
       if (url.host == 'spclient.wg.spotify.com') {
@@ -83,7 +98,7 @@ void main() {
   }
 
   group('Web 登录', () {
-    test('Web 会话 → 全局登录态 → 桌面身份 client-token → 按用户名拉资料', () async {
+    test('Web 会话 → 全局登录态 → Web 播放器身份 client-token → 按用户名拉资料', () async {
       await seedWebSession();
       final resolverTokens = <String>[];
       final auth = webAuth(onResolve: resolverTokens.add);
@@ -96,13 +111,15 @@ void main() {
       expect(resolverTokens, ['web-access']);
       expect(auth.username, 'web-user');
 
-      // client-token：ClientDataRequest 中 client_id 为桌面版，平台数据为 desktop_windows(4)
-      final clientData = fieldsOf(fieldsOf(clientTokenRequests.single.bodyBytes)[2]!.first.bytesValue);
-      expect(clientData[1]!.first.asString, SpotifyAuthConstants.desktopVersion);
-      expect(clientData[2]!.first.asString, SpotifyAuthConstants.desktopClientId);
-      final platform = fieldsOf(fieldsOf(clientData[3]!.first.bytesValue)[1]!.first.bytesValue);
-      expect(platform.keys, [4]);
-      expect(storage.clientTokenProfile, 'desktop');
+      // client-token：与令牌同属 Web 播放器（JSON 请求，对齐 open.spotify.com 前端）
+      final body = jsonDecode(clientTokenRequests.single.body) as Map<String, dynamic>;
+      final clientData = body['client_data'] as Map<String, dynamic>;
+      expect(clientData['client_id'], SpotifyAuthConstants.webClientId);
+      expect(clientData['client_version'], SpotifyAuthConstants.webClientVersion);
+      expect((clientData['js_sdk_data'] as Map)['device_type'], 'computer');
+      expect(storage.clientTokenProfile, 'web');
+      expect(storage.clientToken, 'fake-client-token');
+      expect(auth.clientHeaders['app-platform'], 'WebPlayer');
 
       expect(auth.displayName, 'Web User', reason: '资料来自内部 profile-view/{用户名}，不能用 profile/me');
       expect(auth.avatarUrl, 'https://i.scdn.co/me');

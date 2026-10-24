@@ -8,6 +8,7 @@ import '../../l10n/l10n.dart';
 import '../../services/updates/update_release.dart';
 import '../../services/updates/update_service.dart';
 import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle, M3EDialog;
+import 'flutify_dialog.dart';
 
 Future<void> showUpdateDialog(BuildContext context, UpdateService service) => showDialog<void>(
   context: context,
@@ -18,7 +19,7 @@ Future<void> showUpdateDialog(BuildContext context, UpdateService service) => sh
       final release = service.release;
       final ready = service.status == UpdateStatus.ready;
       final android = service.target?.platform == UpdatePlatform.android;
-      return M3EDialog(
+      return FlutifyDialog(
         icon: Icon(ready ? Icons.download_done_rounded : Icons.system_update_rounded),
         title: '${ready ? l.updatesReady : l.updatesAvailable} ${release?.tag ?? ''}',
         // SelectableText / 进度条需要 Material 祖先

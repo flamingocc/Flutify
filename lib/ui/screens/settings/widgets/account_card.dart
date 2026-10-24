@@ -8,6 +8,7 @@ import '../../../widgets/user_avatar.dart';
 import '../../auth/login_screen.dart';
 import '../../auth/widgets/flutify_mark.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
+import '../../../widgets/flutify_dialog.dart';
 
 /// 设置页顶部的 Spotify 账号卡片。
 ///
@@ -77,7 +78,7 @@ class _SignedIn extends StatelessWidget {
     final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => M3EDialog(
+      builder: (ctx) => FlutifyDialog(
         title: l10n.accountSignOutTitle,
         content: Material(type: MaterialType.transparency, child: Text(l10n.accountSignOutMessage)),
         actions: [

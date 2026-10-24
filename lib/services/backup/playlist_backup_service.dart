@@ -363,8 +363,8 @@ class SpDcBackupFetcher {
       if (clientToken.isNotEmpty) 'client-token': clientToken,
       'Accept': 'application/json',
       'Accept-Language': AppLocale.spotifyLanguage,
-      'User-Agent': SpotifyClientProfile.desktop.userAgent,
-      ...SpotifyClientProfile.desktop.headers,
+      'User-Agent': SpotifyClientProfile.web.userAgent,
+      ...SpotifyClientProfile.web.headers,
     };
 
     var headers = buildHeaders(token);

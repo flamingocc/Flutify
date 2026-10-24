@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/l10n.dart';
 import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog;
+import 'flutify_dialog.dart';
 
 /// 「为歌单命名」对话框。返回输入的名称，取消时返回 null。
 ///
@@ -38,7 +39,7 @@ class _CreatePlaylistDialogState extends State<CreatePlaylistDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return M3EDialog(
+    return FlutifyDialog(
       title: l10n.createPlaylistTitle,
       content: Material(type: MaterialType.transparency, child: TextField(
         controller: _controller,

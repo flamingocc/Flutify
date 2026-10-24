@@ -10,6 +10,7 @@ import '../widgets/settings_section.dart';
 import '../widgets/settings_segmented.dart';
 import '../widgets/settings_slider_tile.dart';
 import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog;
+import '../../../widgets/flutify_dialog.dart';
 
 /// 歌词：字号、对齐、当前行位置、模糊强度、来源补全、译词预取与全屏偏好。
 ///
@@ -130,7 +131,7 @@ class LyricsSection extends StatelessWidget {
     final l10n = context.l10n;
     final result = await showDialog<List<String>>(
       context: context,
-      builder: (context) => M3EDialog(
+      builder: (context) => FlutifyDialog(
         title: l10n.settingsLyricsExcluded,
         content: Material(type: MaterialType.transparency, child: Form(
           key: form,

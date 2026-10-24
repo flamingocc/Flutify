@@ -26,7 +26,8 @@ class SpotifyAuthService {
   /// 令牌提前续期的余量：剩余有效期不足该值即视为过期。
   static const int _refreshMarginMs = 60 * 1000;
 
-  static const SpotifyClientProfile _profile = SpotifyClientProfile.desktop;
+  /// Web 登录铸造的令牌属于 Web 播放器，client-token 与业务请求头必须同一身份。
+  static const SpotifyClientProfile _profile = SpotifyClientProfile.web;
 
   final StorageService _storage;
   final http.Client _client;
@@ -114,7 +115,7 @@ class SpotifyAuthService {
   // client-token
   // ---------------------------------------------------------------------------
 
-  /// 获取有效的桌面端 client-token；过期、缺失或身份不一致（旧版本留下的）则重新申请。
+  /// 获取有效的 Web 播放器 client-token；过期、缺失或身份不一致（旧版本留下的桌面端）则重新申请。
   Future<String> ensureClientToken() {
     _storage.checkSession(_storage.sessionEpoch);
     if (_storage.clientToken.isNotEmpty &&

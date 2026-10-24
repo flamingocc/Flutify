@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../auth/auth_constants.dart';
 import 'dealer_channel.dart';
 import 'dealer_message.dart';
 
@@ -51,7 +52,7 @@ class DealerClient {
   static const String defaultDealerHost = 'dealer.spotify.com';
   static const String defaultSpclientHost = 'spclient.wg.spotify.com';
   static final Uri defaultApresolve = Uri.parse('https://apresolve.spotify.com/?type=dealer&type=spclient');
-  static const String _defaultUserAgent = 'Spotify/130100234 Win32_x86_64/0 (PC desktop)';
+  static const String _defaultUserAgent = SpotifyAuthConstants.webUserAgent;
 
   final http.Client _client;
   final Future<Map<String, String>> Function() _headers;

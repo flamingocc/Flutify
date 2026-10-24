@@ -7,6 +7,7 @@ import '../../../../services/network/spotify_gateway.dart';
 import '../../../../services/network/network_proxy.dart';
 import 'settings_section.dart';
 import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog, M3ESwitch;
+import '../../../widgets/flutify_dialog.dart';
 
 class GatewaySettings extends StatelessWidget {
   final VoidCallback onChanged;
@@ -119,7 +120,7 @@ class _GatewayDialogState extends State<_GatewayDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return M3EDialog(
+    return FlutifyDialog(
       title: l10n.settingsGateway,
       content: Material(type: MaterialType.transparency, child: SizedBox(
         width: 440,

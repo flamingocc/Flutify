@@ -18,6 +18,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'core/render/frame_rate_binding.dart';
+import 'package:material_3_expressive/material_3_expressive.dart' show M3ETheme;
+import 'core/theme/m3e_theme_bridge.dart';
 import 'core/theme/system_bars.dart';
 import 'core/theme/app_text_scaler.dart';
 import 'core/rust_core.dart';
@@ -868,7 +870,11 @@ class _ThemedApp extends StatelessWidget {
         // 实际生效的界面语言决定请求 Spotify 时的 Accept-Language（主页文案等随之本地化）
         AppLocale.resolved(Localizations.localeOf(context));
         final media = MediaQuery.of(context);
-        return DebugTogglesBinding(
+        // material_3_expressive 组件（M3EButton / M3ESwitch / M3EDialog…）读不到 Flutter 的主题，
+        // 这里按当前主题（含强调色 / 封面取色 / 深浅色）显式注入，否则会退回默认紫色与 Roboto
+        return M3ETheme(
+          data: m3eThemeFrom(Theme.of(context)),
+          child: DebugTogglesBinding(
           builder: (context, motionOff) {
             return MediaQuery(
               data: media.copyWith(
@@ -901,6 +907,7 @@ class _ThemedApp extends StatelessWidget {
               ),
             );
           },
+        ),
         );
       },
       home: const UpdatePromptBinding(child: MainShell()),

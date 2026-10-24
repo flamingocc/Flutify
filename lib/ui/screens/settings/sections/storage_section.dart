@@ -17,6 +17,7 @@ import '../widgets/settings_section.dart';
 import '../widgets/settings_segmented.dart';
 import '../../../widgets/toast/app_toast.dart';
 import 'package:material_3_expressive/material_3_expressive.dart';
+import '../../../widgets/flutify_dialog.dart';
 
 /// 存储：音频缓存占用、缓存上限、一键清除。
 ///
@@ -80,7 +81,7 @@ class _StorageSectionState extends State<StorageSection> {
     final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => M3EDialog(
+      builder: (dialogContext) => FlutifyDialog(
         title: l10n.settingsClearAllCache,
         content: Material(type: MaterialType.transparency, child: Text(l10n.settingsClearAllCacheHelp)),
         actions: [
@@ -169,7 +170,7 @@ class _StorageSectionState extends State<StorageSection> {
     final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => M3EDialog(
+      builder: (dialogContext) => FlutifyDialog(
         title: l10n.settingsClearAudioCacheTitle,
         content: Material(type: MaterialType.transparency, child: Text(l10n.settingsClearAudioCacheMessage)),
         actions: [
@@ -347,7 +348,7 @@ class _LocationDialogState extends State<_LocationDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return M3EDialog(
+    return FlutifyDialog(
       title: l10n.settingsCacheLocation,
       content: Material(type: MaterialType.transparency, child: SizedBox(
         width: 480,

@@ -15,6 +15,7 @@ import '../../../widgets/cover_image.dart';
 import '../../../widgets/toast/app_toast.dart';
 import '../../auth/backup_account_login_screen.dart';
 import '../widgets/settings_section.dart';
+import '../../../widgets/flutify_dialog.dart';
 
 /// 设置页「歌单备份」分组：
 /// - 显示各个备份账号各自的「已点赞的歌曲」（点击直接查看该账号的已点赞歌曲，不会跳去本机账号）；
@@ -553,7 +554,7 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
         .isExternalBackupLikedPlaylist(widget.playlist.id);
     final selected = _selectedTracks;
 
-    return M3EDialog(
+    return FlutifyDialog(
       title: isExternalBackupLiked
           ? '选择要导入的歌曲 · ${widget.playlist.name}'
           : '多选收藏歌曲 · ${widget.playlist.name}',
