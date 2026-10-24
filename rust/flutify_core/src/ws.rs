@@ -89,7 +89,14 @@ pub async fn connect(id: u64, url: String, headers: Vec<(String, String)>, emit:
     let (stream, _) = match connected {
         Ok(s) => s,
         Err(e) => {
-            emit(WsEvent { kind: WS_ERROR, text: format!("connect:{e}"), code: 0 });
+            // 服务端回了 HTTP 错误（如令牌过期 401）：已连上服务器，换通道重试也是同样结果
+            let text = match &e {
+                tokio_tungstenite::tungstenite::Error::Http(response) => {
+                    format!("request:HTTP {}", response.status())
+                }
+                _ => format!("connect:{e}"),
+            };
+            emit(WsEvent { kind: WS_ERROR, text, code: 0 });
             return;
         }
     };

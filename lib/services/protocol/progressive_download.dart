@@ -4,7 +4,11 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../../core/rust_core.dart';
+import '../../src/rust/api/network.dart' as rust_net;
+import '../network/direct_route.dart';
 import 'audio_normalization.dart';
+import 'decrypt/audio_decryptor.dart';
 import 'decrypt/decrypt_backend.dart';
 import 'track_metadata.dart';
 
@@ -222,7 +226,79 @@ class ProgressiveDownload implements ProgressiveAudio {
   }
 
   /// 从 [_received] 处开始（续传时带 Range）下载到结尾。
+  ///
+  /// 直连且为 AES-CTR 时由 Rust 下载并解密（数据只跨一次 FFI，不再经 Dart 解密 Isolate 往返）；
+  /// Rust 建连失败（一个字节都没收到）时改走下面的 Dart 实现。
   Future<void> _fetch(String url) async {
+    final spec = decrypt;
+    if (RustCore.ready &&
+        spec is AesCtrDecryptSpec &&
+        await isDirectRoute(Uri.parse(url))) {
+      if (await _fetchRust(url, spec)) return;
+    }
+    await _fetchDart(url);
+  }
+
+  /// Rust 下载 + 解密；建连失败（未收到数据）返回 false。
+  Future<bool> _fetchRust(String url, AesCtrDecryptSpec spec) async {
+    final resume = _received > 0 && _buffer != null;
+    var pos = 0;
+    Uint8List? buffer;
+    BytesBuilder? pending;
+    var gotData = false;
+    // 跳出 await for 即取消订阅：Rust 端推送失败后立即停止下载、关闭连接
+    await for (final e in rust_net.audioDownloadDecrypt(
+      url: url,
+      headers: const [],
+      offset: resume ? _received : 0,
+      key: spec.key,
+      iv: spec.iv,
+    )) {
+      if (_cancelled) throw const DownloadCancelledException();
+      switch (e.kind) {
+        case 0: // 元信息：服务器忽略 Range 时从头重新写（内容相同）
+          pos = e.status == 206 ? _received : 0;
+          if (_buffer == null && e.total > 0) _buffer = Uint8List(e.total);
+          buffer = _buffer;
+          pending = buffer == null ? BytesBuilder(copy: false) : null;
+        case 1: // 已解密数据块
+          gotData = true;
+          final data = e.data;
+          final target = buffer;
+          if (target != null) {
+            if (pos + data.length > target.length) {
+              throw StateError('CDN 返回的数据超出声明长度');
+            }
+            target.setRange(pos, pos + data.length, data);
+            pos += data.length;
+            if (pos > _received) _advance(pos);
+          } else {
+            pending?.add(data);
+          }
+        case 3: // 完成
+          return _finishFetch(buffer, pending);
+        case 4: // 失败
+          if (!gotData && e.message.startsWith('connect:')) return false;
+          throw StateError(e.message.replaceFirst(RegExp('^[a-z]+:'), ''));
+      }
+    }
+    throw StateError('下载意外中断');
+  }
+
+  /// 一次请求结束：总长度未知时整体放入缓冲区；已知时检查是否收全。
+  bool _finishFetch(Uint8List? buffer, BytesBuilder? pending) {
+    if (buffer == null) {
+      final bytes = pending?.takeBytes() ?? Uint8List(0);
+      if (bytes.isEmpty) throw StateError('CDN 返回空文件');
+      _buffer = bytes;
+      _advance(bytes.length);
+    } else if (_received < buffer.length) {
+      throw StateError('下载中断（$_received/${buffer.length}）');
+    }
+    return true;
+  }
+
+  Future<void> _fetchDart(String url) async {
     final resume = _received > 0 && _buffer != null;
     final request = http.Request('GET', Uri.parse(url));
     if (resume) request.headers['Range'] = 'bytes=$_received-';

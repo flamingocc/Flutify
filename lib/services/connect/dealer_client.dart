@@ -94,7 +94,7 @@ class DealerClient {
     this.firstMessageTimeout = const Duration(seconds: 10),
     this.initialBackoff = const Duration(seconds: 1),
     this.maxBackoff = const Duration(seconds: 60),
-  }) : _connector = connector ?? WebSocketDealerChannel.connect,
+  }) : _connector = connector ?? RustDealerChannel.connect,
        _apresolve = apresolve ?? defaultApresolve;
 
   /// 除连接握手消息外的全部推送（广播）。

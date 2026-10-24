@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../../core/rust_core.dart';
 import '../../src/rust/api/protocol.dart' as rust;
+import 'direct_route.dart';
 import 'network_proxy.dart';
 
 /// Spotify API 请求经 Rust HTTP/2 客户端发送（一条连接多路复用），其余照旧走 [inner]。
@@ -65,14 +66,7 @@ class Http2Client extends http.BaseClient {
   Future<bool> _eligible(Uri url) async {
     if (!_enabled || url.scheme != 'https' || !isApiHost(url.host)) return false;
     if ((_connectFailures[url.host] ?? 0) >= maxConnectFailures) return false;
-    // 网关会改写目标地址、加网关头：交给 Dart 网络层
-    try {
-      if (_proxy.gateway.route(url) != url) return false;
-    } on FormatException {
-      return false;
-    }
-    // 代理（含 PAC 求值）：只有直连才走 Rust
-    return await _proxy.endpointForAsync(url) == null;
+    return isDirectRoute(url, proxy: _proxy);
   }
 
   @override
