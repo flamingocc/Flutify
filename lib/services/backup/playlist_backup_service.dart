@@ -929,6 +929,11 @@ class PlaylistBackupService extends ChangeNotifier {
     if (!_storage.isLoggedIn || library.isLoading) return;
     final id = _storage.username.trim();
     if (id.isEmpty) return;
+    // 媒体库数据必须属于这个账号：换号时媒体库先清空、拉完新数据才标记归属，
+    // 中间任何时刻（定时器、设置变化）触发都不能把空数据或上一个账号的数据写成本账号的备份
+    if (_storage.libraryAccount != id) return;
+    // 读取失败时媒体库可能是空的或残缺的：等下次读取成功再备份，不覆盖已有的完整备份
+    if (library.loadError != null) return;
 
     final liked = library.likedTracks;
     final playlists = library.playlists
@@ -981,8 +986,15 @@ class PlaylistBackupService extends ChangeNotifier {
   }
 
   /// 当前登录账号的备份记录（设置页不显示它；切换到别的账号后它才作为「以前登录的账号」出现）。
-  bool isLiveCurrentAccount(BackupAccount account) =>
-      account.isCurrentAccount && _storage.isLoggedIn;
+  /// 只认「标记为当前账号且就是现在登录的这个号」：换号后即使还没来得及备份新账号
+  /// （例如关闭了自动备份），旧账号的记录也会立即作为「以前登录的账号」显示出来。
+  bool isLiveCurrentAccount(BackupAccount account) {
+    if (!account.isCurrentAccount || !_storage.isLoggedIn) return false;
+    final id = _storage.username.trim();
+    final email = _storage.email.trim();
+    return (id.isNotEmpty && account.id == id) ||
+        (email.isNotEmpty && account.email.trim() == email);
+  }
 
   /// 设置页「歌单备份」里显示的账号：隐藏当前登录账号自己的备份。
   List<BackupAccount> get visibleAccounts => [
@@ -1271,7 +1283,8 @@ class PlaylistBackupService extends ChangeNotifier {
   /// 一键将已勾选备份账号的全部歌单与已点赞歌曲同步到本机当前账号。
   Future<BackupSyncResult> syncToCurrentAccount() async {
     final selected = <SpotifyPlaylist>[];
-    for (final account in _accounts) {
+    // 不含当前登录账号自己：把自己的歌单「导入」给自己只会在本机歌单里多出一份重复副本
+    for (final account in visibleAccounts) {
       if (!account.syncToLocal) continue;
       selected.addAll(account.backedUpPlaylists);
     }
@@ -1310,18 +1323,25 @@ class PlaylistBackupService extends ChangeNotifier {
 
   void _loadFromDisk() {
     final file = _diskFile;
-    if (file != null && file.existsSync()) {
-      try {
-        final decoded = jsonDecode(file.readAsStringSync());
-        if (decoded is List) {
-          _accounts = List.unmodifiable(
-            decoded
-                .whereType<Map<String, dynamic>>()
-                .map(BackupAccount.fromJson),
-          );
-          return;
-        }
-      } catch (_) {}
+    if (file != null) {
+      final fromFile = _readBackupFile(file);
+      if (fromFile != null) {
+        _accounts = fromFile;
+        return;
+      }
+      if (file.existsSync()) {
+        // 主文件损坏：留一份原样副本，免得之后的落盘把它覆盖掉
+        try {
+          file.copySync('${file.path}.corrupt');
+        } catch (_) {}
+      }
+      // 上次写到一半（主文件缺失 / 损坏）：用完整写好的临时文件恢复
+      final fromTmp = _readBackupFile(File('${file.path}.tmp'));
+      if (fromTmp != null) {
+        _accounts = fromTmp;
+        _persistToDisk();
+        return;
+      }
     }
     final list = _storage.readJsonList(StorageService.keyPlaylistBackups);
     _accounts = List.unmodifiable(list.map(BackupAccount.fromJson));
@@ -1340,6 +1360,19 @@ class PlaylistBackupService extends ChangeNotifier {
   @visibleForTesting
   Future<void> get pendingPersist => _persistQueue;
 
+  static List<BackupAccount>? _readBackupFile(File file) {
+    try {
+      if (!file.existsSync()) return null;
+      final decoded = jsonDecode(file.readAsStringSync());
+      if (decoded is! List) return null;
+      return List.unmodifiable(
+        decoded.whereType<Map<String, dynamic>>().map(BackupAccount.fromJson),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   void _persistToDisk() {
     final serialized = [for (final a in _accounts) a.toJson()];
     final file = _diskFile;
@@ -1356,8 +1389,13 @@ class PlaylistBackupService extends ChangeNotifier {
         await file.parent.create(recursive: true);
         final tmp = File('${file.path}.tmp');
         await tmp.writeAsString(text, flush: true);
-        if (await file.exists()) await file.delete();
-        await tmp.rename(file.path);
+        try {
+          // 原子替换：任何时刻磁盘上都有一份完整的备份（旧的或新的）
+          await tmp.rename(file.path);
+        } on FileSystemException {
+          // 目标被其他程序短暂占用（杀毒 / 同步盘）：退回直接覆盖写入
+          await file.writeAsString(text, flush: true);
+        }
       } catch (_) {}
     });
   }

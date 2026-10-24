@@ -256,7 +256,7 @@ class _StorageSectionState extends State<StorageSection> {
             trailing: _clearing
                 ? const SizedBox.square(
                     dimension: 20,
-                    child: FlutifySpinner(),
+                    child: FlutifySpinner(size: 20),
                   )
                 : const Icon(Icons.cleaning_services_rounded),
             onTap: _clearing ? null : () => _clearAll(location),
@@ -291,7 +291,7 @@ class _StorageSectionState extends State<StorageSection> {
             trailing: _clearing
                 ? const SizedBox.square(
                     dimension: 20,
-                    child: FlutifySpinner(),
+                    child: FlutifySpinner(size: 20),
                   )
                 : Icon(
                     Icons.delete_sweep_rounded,

@@ -51,7 +51,7 @@ class PlayPauseButton extends StatelessWidget {
                 SizedBox(
                   width: size - 8,
                   height: size - 8,
-                  child: FlutifySpinner(color: foreground.withAlpha(90)),
+                  child: FlutifySpinner(size: size - 8, color: foreground.withAlpha(90)),
                 ),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),

@@ -580,7 +580,7 @@ class _RegionBlockedView extends StatelessWidget {
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: FlutifySpinner(),
+                            child: FlutifySpinner(size: 16),
                           )
                         : const Icon(Icons.refresh_rounded),
                     label: Text(

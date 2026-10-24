@@ -48,6 +48,7 @@ class LibraryProvider extends ChangeNotifier {
   SpotifyPlaylist? _likedSongsCache;
 
   bool _isLoading = false;
+  bool _disposed = false;
   String? _loadError;
   String? _syncError;
   int _refreshGeneration = 0;
@@ -55,6 +56,12 @@ class LibraryProvider extends ChangeNotifier {
   LibraryProvider(this._storage, {this._source}) {
     _load();
     if (_source != null) unawaited(refresh());
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   // ---------------------------------------------------------------------------
@@ -346,11 +353,16 @@ class LibraryProvider extends ChangeNotifier {
     notifyListeners();
     final source = _source;
     if (source != null && source.isSignedIn) {
+      final account = source.accountId;
       unawaited(() async {
         for (final t in added) {
+          // 逐首同步期间：退出 / 换号就停；用户中途取消了收藏的歌不再写回账号
+          if (_disposed || !source.isSignedIn || source.accountId != account) return;
+          if (!_likedIds.contains(t.id)) continue;
           try {
             await source.setTrackLiked(t, true);
           } catch (e) {
+            if (_disposed) return;
             _syncError = e is LibrarySourceException ? e.toString() : '同步失败：$e';
             notifyListeners();
             return;

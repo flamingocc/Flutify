@@ -317,7 +317,7 @@ class _ArtistCatalogScreenState extends State<ArtistCatalogScreen> {
                   child: _loading
                       ? const SizedBox.square(
                           dimension: 24,
-                          child: FlutifySpinner(),
+                          child: FlutifySpinner(size: 24),
                         )
                       : M3EButton.icon(style: M3EButtonStyle.outlined,
                           key: const Key('artist-catalog-load-more'),

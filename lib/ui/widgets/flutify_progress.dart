@@ -4,21 +4,21 @@ import 'package:material_3_expressive/material_3_expressive.dart'
 
 /// 行内加载圈：MD3E 圆形进度（不定进度时无轨道，与原生观感一致）。
 ///
-/// 尺寸跟随外层约束（常见用法是放进 `SizedBox.square`），无界时退回 [fallbackSize]。
+/// 尺寸显式给出（不用 LayoutBuilder：它不支持固有尺寸查询，放进按钮图标槽等位置会报错）。
 class FlutifySpinner extends StatelessWidget {
+  final double size;
   final double strokeWidth;
   final Color? color;
   final double? value;
   final String? semanticsLabel;
-  final double fallbackSize;
 
   const FlutifySpinner({
     super.key,
+    this.size = 20,
     this.strokeWidth = 2,
     this.color,
     this.value,
     this.semanticsLabel,
-    this.fallbackSize = 20,
   });
 
   @override
@@ -26,26 +26,15 @@ class FlutifySpinner extends StatelessWidget {
     return Semantics(
       label: semanticsLabel,
       value: value == null ? null : '${(value! * 100).round()}%',
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final bounded =
-              constraints.hasBoundedWidth && constraints.hasBoundedHeight;
-          final size = bounded
-              ? (constraints.maxWidth < constraints.maxHeight
-                    ? constraints.maxWidth
-                    : constraints.maxHeight)
-              : fallbackSize;
-          return Center(
-            child: M3EProgressIndicator.circular(
-              value: value,
-              size: size,
-              strokeWidth: strokeWidth,
-              trackStrokeWidth: strokeWidth,
-              color: color ?? Theme.of(context).colorScheme.primary,
-              trackColor: value == null ? Colors.transparent : null,
-            ),
-          );
-        },
+      child: Center(
+        child: M3EProgressIndicator.circular(
+          value: value,
+          size: size,
+          strokeWidth: strokeWidth,
+          trackStrokeWidth: strokeWidth,
+          color: color ?? Theme.of(context).colorScheme.primary,
+          trackColor: value == null ? Colors.transparent : null,
+        ),
       ),
     );
   }

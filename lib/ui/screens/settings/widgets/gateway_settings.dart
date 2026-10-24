@@ -64,7 +64,7 @@ class GatewaySettings extends StatelessWidget {
               trailing: proxy?.gatewayChecking == true
                   ? const SizedBox.square(
                       dimension: 20,
-                      child: FlutifySpinner(),
+                      child: FlutifySpinner(size: 20),
                     )
                   : IconButton(
                       tooltip: l10n.settingsGatewayRecheck,

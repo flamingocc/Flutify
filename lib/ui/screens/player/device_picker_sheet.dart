@@ -408,7 +408,7 @@ class _StatusLine extends StatelessWidget {
         SizedBox.square(
           dimension: 14,
           child: busy
-              ? const FlutifySpinner()
+              ? const FlutifySpinner(size: 14)
               : Icon(
                   Icons.cloud_off_rounded,
                   size: 14,
@@ -748,7 +748,7 @@ class _LocalOutputSectionState extends State<_LocalOutputSection> {
                     padding: EdgeInsets.only(top: 14),
                     child: SizedBox.square(
                       dimension: 16,
-                      child: FlutifySpinner(),
+                      child: FlutifySpinner(size: 16),
                     ),
                   ),
               ],

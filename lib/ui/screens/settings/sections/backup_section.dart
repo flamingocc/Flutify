@@ -262,7 +262,7 @@ class _BackupSectionState extends State<BackupSection> {
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: FlutifySpinner(),
+                      child: FlutifySpinner(size: 20),
                     )
                   : const Icon(Icons.person_add_alt_1_rounded),
               onTap: backingUp

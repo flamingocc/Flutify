@@ -524,6 +524,7 @@ class _SearchPageControl extends StatelessWidget {
           child: SizedBox.square(
             dimension: 24,
             child: FlutifySpinner(
+              size: 24,
               key: ValueKey('search-loading-${type.name}'),
               semanticsLabel: l10n.commonLoadMore,
             ),

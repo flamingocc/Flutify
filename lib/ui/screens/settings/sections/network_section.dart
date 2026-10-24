@@ -232,7 +232,7 @@ class _NetworkSectionState extends State<NetworkSection> {
             trailing: switch (_probe) {
               _ProbeState.running => const SizedBox.square(
                 dimension: 20,
-                child: FlutifySpinner(),
+                child: FlutifySpinner(size: 20),
               ),
               _ProbeState.ok => Icon(
                 Icons.check_circle_rounded,
