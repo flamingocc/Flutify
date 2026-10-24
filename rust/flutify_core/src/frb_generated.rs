@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -717784317;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1220244069;
 
 // Section: executor
 
@@ -471,6 +471,54 @@ fn wire__crate__api__lyrics__has_translation_marker_impl(
                 let output_ok = Ok::<_, ()>(crate::api::lyrics::has_translation_marker(api_text))?;
                 std::result::Result::Ok(output_ok)
             })())
+        },
+    )
+}
+fn wire__crate__api__protocol__http_send_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "http_send",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_method = <String>::sse_decode(&mut deserializer);
+            let api_url = <String>::sse_decode(&mut deserializer);
+            let api_headers =
+                <Vec<crate::api::protocol::HttpHeaderEntry>>::sse_decode(&mut deserializer);
+            let api_body = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_timeout_ms = <u64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, String>(
+                    (move || async move {
+                        let output_ok = crate::api::protocol::http_send(
+                            api_method,
+                            api_url,
+                            api_headers,
+                            api_body,
+                            api_timeout_ms,
+                        )
+                        .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
         },
     )
 }
@@ -1290,6 +1338,35 @@ impl SseDecode for f64 {
     }
 }
 
+impl SseDecode for crate::api::protocol::HttpHeaderEntry {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_value = <String>::sse_decode(deserializer);
+        return crate::api::protocol::HttpHeaderEntry {
+            name: var_name,
+            value: var_value,
+        };
+    }
+}
+
+impl SseDecode for crate::api::protocol::HttpResponseData {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_status = <u16>::sse_decode(deserializer);
+        let mut var_headers =
+            <Vec<crate::api::protocol::HttpHeaderEntry>>::sse_decode(deserializer);
+        let mut var_body = <Vec<u8>>::sse_decode(deserializer);
+        let mut var_version = <String>::sse_decode(deserializer);
+        return crate::api::protocol::HttpResponseData {
+            status: var_status,
+            headers: var_headers,
+            body: var_body,
+            version: var_version,
+        };
+    }
+}
+
 impl SseDecode for i32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1323,6 +1400,20 @@ impl SseDecode for Vec<crate::api::lyrics::BilingualLine> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<crate::api::lyrics::BilingualLine>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::protocol::HttpHeaderEntry> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::protocol::HttpHeaderEntry>::sse_decode(
                 deserializer,
             ));
         }
@@ -1433,10 +1524,24 @@ impl SseDecode for crate::api::protocol::SpotifyLinkTarget {
     }
 }
 
+impl SseDecode for u16 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_u16::<NativeEndian>().unwrap()
+    }
+}
+
 impl SseDecode for u32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         deserializer.cursor.read_u32::<NativeEndian>().unwrap()
+    }
+}
+
+impl SseDecode for u64 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        deserializer.cursor.read_u64::<NativeEndian>().unwrap()
     }
 }
 
@@ -1461,8 +1566,9 @@ fn pde_ffi_dispatcher_primary_impl(
 ) {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        14 => wire__crate__api__lyrics__init_app_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__protocol__sha256_file_impl(port, ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__protocol__http_send_impl(port, ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__lyrics__init_app_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__protocol__sha256_file_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1494,36 +1600,36 @@ fn pde_ffi_dispatcher_sync_impl(
             data_len,
         ),
         13 => wire__crate__api__lyrics__has_translation_marker_impl(ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__lyrics__is_mixed_script_lines_impl(ptr, rust_vec_len, data_len),
-        16 => {
+        16 => wire__crate__api__lyrics__is_mixed_script_lines_impl(ptr, rust_vec_len, data_len),
+        17 => {
             wire__crate__api__lyrics__is_translation_credit_line_impl(ptr, rust_vec_len, data_len)
         }
-        17 => wire__crate__api__lyrics__lyric_line_family_impl(ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__lyrics__main_lyric_lang_impl(ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__protocol__normalization_volume_factor_impl(
+        18 => wire__crate__api__lyrics__lyric_line_family_impl(ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__lyrics__main_lyric_lang_impl(ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__protocol__normalization_volume_factor_impl(
             ptr,
             rust_vec_len,
             data_len,
         ),
-        20 => {
+        21 => {
             wire__crate__api__protocol__parse_audio_normalization_impl(ptr, rust_vec_len, data_len)
         }
-        21 => wire__crate__api__lyrics__parse_lrc_impl(ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__protocol__parse_spotify_link_impl(ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__lyrics__score_lyric_lang_impl(ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__protocol__shannon_decode_packet_impl(ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__protocol__shannon_decrypt_header_impl(ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__protocol__shannon_encode_packet_impl(ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__protocol__solve_hashcash_impl(ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__protocol__spotify_id_from_base16_impl(ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__protocol__spotify_id_from_base62_impl(ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__protocol__spotify_id_from_uri_impl(ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__protocol__spotify_id_to_base16_impl(ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__protocol__spotify_id_to_base62_impl(ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__lyrics__try_merge_bilingual_lines_impl(ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__lyrics__zh_convert_impl(ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__lyrics__zh_count_simplified_impl(ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__lyrics__zh_count_traditional_impl(ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__lyrics__parse_lrc_impl(ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__protocol__parse_spotify_link_impl(ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__lyrics__score_lyric_lang_impl(ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__protocol__shannon_decode_packet_impl(ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__protocol__shannon_decrypt_header_impl(ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__protocol__shannon_encode_packet_impl(ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__protocol__solve_hashcash_impl(ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__protocol__spotify_id_from_base16_impl(ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__protocol__spotify_id_from_base62_impl(ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__protocol__spotify_id_from_uri_impl(ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__protocol__spotify_id_to_base16_impl(ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__protocol__spotify_id_to_base62_impl(ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__lyrics__try_merge_bilingual_lines_impl(ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__lyrics__zh_convert_impl(ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__lyrics__zh_count_simplified_impl(ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__lyrics__zh_count_traditional_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1571,6 +1677,50 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::lyrics::BilingualLine>
     for crate::api::lyrics::BilingualLine
 {
     fn into_into_dart(self) -> crate::api::lyrics::BilingualLine {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::protocol::HttpHeaderEntry {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.name.into_into_dart().into_dart(),
+            self.value.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::protocol::HttpHeaderEntry
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::protocol::HttpHeaderEntry>
+    for crate::api::protocol::HttpHeaderEntry
+{
+    fn into_into_dart(self) -> crate::api::protocol::HttpHeaderEntry {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::protocol::HttpResponseData {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.status.into_into_dart().into_dart(),
+            self.headers.into_into_dart().into_dart(),
+            self.body.into_into_dart().into_dart(),
+            self.version.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::protocol::HttpResponseData
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::protocol::HttpResponseData>
+    for crate::api::protocol::HttpResponseData
+{
+    fn into_into_dart(self) -> crate::api::protocol::HttpResponseData {
         self
     }
 }
@@ -1676,6 +1826,24 @@ impl SseEncode for f64 {
     }
 }
 
+impl SseEncode for crate::api::protocol::HttpHeaderEntry {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.value, serializer);
+    }
+}
+
+impl SseEncode for crate::api::protocol::HttpResponseData {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u16>::sse_encode(self.status, serializer);
+        <Vec<crate::api::protocol::HttpHeaderEntry>>::sse_encode(self.headers, serializer);
+        <Vec<u8>>::sse_encode(self.body, serializer);
+        <String>::sse_encode(self.version, serializer);
+    }
+}
+
 impl SseEncode for i32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -1706,6 +1874,16 @@ impl SseEncode for Vec<crate::api::lyrics::BilingualLine> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::api::lyrics::BilingualLine>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::protocol::HttpHeaderEntry> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::protocol::HttpHeaderEntry>::sse_encode(item, serializer);
         }
     }
 }
@@ -1786,10 +1964,24 @@ impl SseEncode for crate::api::protocol::SpotifyLinkTarget {
     }
 }
 
+impl SseEncode for u16 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer.cursor.write_u16::<NativeEndian>(self).unwrap();
+    }
+}
+
 impl SseEncode for u32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         serializer.cursor.write_u32::<NativeEndian>(self).unwrap();
+    }
+}
+
+impl SseEncode for u64 {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        serializer.cursor.write_u64::<NativeEndian>(self).unwrap();
     }
 }
 

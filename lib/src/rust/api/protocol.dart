@@ -177,6 +177,22 @@ bool apRsaVerifyPkcs1Sha1({
 Future<String> sha256File({required String path}) =>
     RustLib.instance.api.crateApiProtocolSha256File(path: path);
 
+/// 经 Rust HTTP/2 客户端发请求（仅直连；代理 / 网关由 Dart 侧判断后不走这里）。
+/// 错误以 `connect:`（未发出，可安全改走其他通道）/ `timeout:` / `request:` 开头。
+Future<HttpResponseData> httpSend({
+  required String method,
+  required String url,
+  required List<HttpHeaderEntry> headers,
+  required List<int> body,
+  required BigInt timeoutMs,
+}) => RustLib.instance.api.crateApiProtocolHttpSend(
+  method: method,
+  url: url,
+  headers: headers,
+  body: body,
+  timeoutMs: timeoutMs,
+);
+
 /// AP 握手推导出的 challenge 与收发密钥。
 class ApHandshakeKeys {
   final Uint8List challenge;
@@ -200,6 +216,56 @@ class ApHandshakeKeys {
           challenge == other.challenge &&
           sendKey == other.sendKey &&
           recvKey == other.recvKey;
+}
+
+/// HTTP 头（名称 / 值）。
+class HttpHeaderEntry {
+  final String name;
+  final String value;
+
+  const HttpHeaderEntry({required this.name, required this.value});
+
+  @override
+  int get hashCode => name.hashCode ^ value.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HttpHeaderEntry &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          value == other.value;
+}
+
+/// HTTP 响应（完整响应体）。
+class HttpResponseData {
+  final int status;
+  final List<HttpHeaderEntry> headers;
+  final Uint8List body;
+
+  /// 实际协商到的协议（`HTTP/2.0` / `HTTP/1.1`）。
+  final String version;
+
+  const HttpResponseData({
+    required this.status,
+    required this.headers,
+    required this.body,
+    required this.version,
+  });
+
+  @override
+  int get hashCode =>
+      status.hashCode ^ headers.hashCode ^ body.hashCode ^ version.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is HttpResponseData &&
+          runtimeType == other.runtimeType &&
+          status == other.status &&
+          headers == other.headers &&
+          body == other.body &&
+          version == other.version;
 }
 
 /// 音频响度均衡数据。

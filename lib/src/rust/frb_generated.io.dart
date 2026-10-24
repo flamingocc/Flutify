@@ -41,6 +41,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double dco_decode_f_64(dynamic raw);
 
   @protected
+  HttpHeaderEntry dco_decode_http_header_entry(dynamic raw);
+
+  @protected
+  HttpResponseData dco_decode_http_response_data(dynamic raw);
+
+  @protected
   int dco_decode_i_32(dynamic raw);
 
   @protected
@@ -51,6 +57,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<BilingualLine> dco_decode_list_bilingual_line(dynamic raw);
+
+  @protected
+  List<HttpHeaderEntry> dco_decode_list_http_header_entry(dynamic raw);
 
   @protected
   List<LrcLine> dco_decode_list_lrc_line(dynamic raw);
@@ -82,7 +91,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SpotifyLinkTarget dco_decode_spotify_link_target(dynamic raw);
 
   @protected
+  int dco_decode_u_16(dynamic raw);
+
+  @protected
   int dco_decode_u_32(dynamic raw);
+
+  @protected
+  BigInt dco_decode_u_64(dynamic raw);
 
   @protected
   int dco_decode_u_8(dynamic raw);
@@ -116,6 +131,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   double sse_decode_f_64(SseDeserializer deserializer);
 
   @protected
+  HttpHeaderEntry sse_decode_http_header_entry(SseDeserializer deserializer);
+
+  @protected
+  HttpResponseData sse_decode_http_response_data(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_i_32(SseDeserializer deserializer);
 
   @protected
@@ -126,6 +147,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<BilingualLine> sse_decode_list_bilingual_line(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<HttpHeaderEntry> sse_decode_list_http_header_entry(
     SseDeserializer deserializer,
   );
 
@@ -165,7 +191,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  int sse_decode_u_16(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_u_32(SseDeserializer deserializer);
+
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
@@ -204,6 +236,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_f_64(double self, SseSerializer serializer);
 
   @protected
+  void sse_encode_http_header_entry(
+    HttpHeaderEntry self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_http_response_data(
+    HttpResponseData self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
 
   @protected
@@ -215,6 +259,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_bilingual_line(
     List<BilingualLine> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_http_header_entry(
+    List<HttpHeaderEntry> self,
     SseSerializer serializer,
   );
 
@@ -264,7 +314,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_u_16(int self, SseSerializer serializer);
+
+  @protected
   void sse_encode_u_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_8(int self, SseSerializer serializer);
