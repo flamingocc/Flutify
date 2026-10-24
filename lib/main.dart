@@ -642,7 +642,8 @@ class FlutifyApp extends StatelessWidget {
                   start,
                 );
                 try {
-                  final repeat = playback.repeatMode;
+                  // 切换歌单时为默认循环方式：服务端回推的 replace_state 会按这里的值设置本机
+                  final repeat = playback.repeatModeForNextPlay;
                   await connect.playOnReceiver(
                     request,
                     repeatingContext: repeat != SpotifyRepeatMode.off,
@@ -737,11 +738,16 @@ void _startConnectReceiver(
     debugPrint(
       '[Receiver] 交接给 Connect：${current.name} @${positionMs}ms paused=$paused',
     );
+    // 带上本机当前的循环方式（启动时已按默认循环方式还原）：不带的话服务端沿用它上次记录的
+    // 状态，回推的 replace_state 会把本机的默认循环方式覆盖掉
+    final repeat = playback.repeatMode;
     try {
       await connect.playOnReceiver(
         request,
         seekToMs: positionMs,
         paused: paused,
+        repeatingContext: repeat != SpotifyRepeatMode.off,
+        repeatingTrack: repeat == SpotifyRepeatMode.track,
       );
       return true;
     } catch (e) {

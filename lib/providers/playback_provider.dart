@@ -312,6 +312,13 @@ class PlaybackProvider extends ChangeNotifier {
   /// 设置里的「默认循环方式」；null 表示不干预，循环方式由用户当场点的（或上次会话）决定。
   SpotifyRepeatMode? get defaultRepeatMode => _defaultRepeatMode;
 
+  /// 本次点歌应使用的循环方式（切换歌单 / 从头播放上下文时为默认循环方式）。
+  ///
+  /// 经 Connect 下发给本机播放端时要随请求带上：服务端回推的 replace_state 会携带播放选项
+  /// 并覆盖本机，不带的话默认循环方式就被服务端上一次的状态冲掉。
+  SpotifyRepeatMode get repeatModeForNextPlay => _repeatModeForNextPlay ?? _repeatMode;
+  SpotifyRepeatMode? _repeatModeForNextPlay;
+
   /// 设置页改动「默认循环方式」时同步进来。
   ///
   /// 它同时是当前循环方式：否则设置里选完要等下次启动才生效，
@@ -985,13 +992,18 @@ class PlaybackProvider extends ChangeNotifier {
     final intent = ++_playIntent;
     final switching = _isSwitchingContext(context);
     final remote = remotePlay;
-    if (remote != null &&
-        await remote(
-          context ?? PlaybackContext.none,
-          contextQueue ?? [track],
-          track,
-        ))
-      return;
+    _repeatModeForNextPlay = switching ? _defaultRepeatMode : null;
+    try {
+      if (remote != null &&
+          await remote(
+            context ?? PlaybackContext.none,
+            contextQueue ?? [track],
+            track,
+          ))
+        return;
+    } finally {
+      _repeatModeForNextPlay = null;
+    }
     if (intent != _playIntent) return;
     if (switching) _applyDefaultRepeatMode();
     await _playLocal(
@@ -1242,7 +1254,12 @@ class PlaybackProvider extends ChangeNotifier {
     if (tracks.isEmpty) return;
     final intent = ++_playIntent;
     final remote = remotePlay;
-    if (remote != null && await remote(context, tracks, null)) return;
+    _repeatModeForNextPlay = _defaultRepeatMode;
+    try {
+      if (remote != null && await remote(context, tracks, null)) return;
+    } finally {
+      _repeatModeForNextPlay = null;
+    }
     if (intent != _playIntent) return;
     // 切换歌单 / 从头播放上下文时应用设置的默认循环方式（交给远程设备时不动本机设置）
     _applyDefaultRepeatMode();
