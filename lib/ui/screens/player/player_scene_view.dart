@@ -237,6 +237,14 @@ class _PlayerSceneViewState extends State<PlayerSceneView> {
                 playbackContext: widget.playbackContext!,
                 onConnect: () =>
                     PlayerSceneView.toggleDevices(context, _devicesOpen),
+                pin: !widget.controlsOnLeft &&
+                        widget.onPinnedChanged != null &&
+                        _view != PlayerView.artwork
+                    ? _PinButton(
+                        pinned: widget.pinned,
+                        onChanged: widget.onPinnedChanged!,
+                      )
+                    : null,
               ),
             ),
         titleBuilder: (context, progress) => PlayerExpansionReveal(
@@ -393,21 +401,6 @@ class _PlayerSceneViewState extends State<PlayerSceneView> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const LyricsTranslationButton(),
-                  if (widget.onPinnedChanged != null) ...[
-                    const SizedBox(width: 8),
-                    GlassIconButton(
-                      icon: widget.pinned
-                          ? Icons.push_pin_rounded
-                          : Icons.push_pin_outlined,
-                      size: 36,
-                      selected: widget.pinned,
-                      tooltip: widget.pinned
-                          ? context.l10n.lyricsUnpinControls
-                          : context.l10n.lyricsPinControls,
-                      onPressed: () =>
-                          widget.onPinnedChanged!(!widget.pinned),
-                    ),
-                  ],
                   // 桌面对话框里额外提供沉浸式全屏歌词入口。
                   if (widget.immersiveEntry &&
                       MediaQuery.sizeOf(context).width >= 800) ...[
@@ -562,11 +555,13 @@ class _TopBar extends StatelessWidget {
   final SpotifyTrack track;
   final PlaybackContext playbackContext;
   final VoidCallback onConnect;
+  final Widget? pin;
 
   const _TopBar({
     required this.track,
     required this.playbackContext,
     required this.onConnect,
+    this.pin,
   });
 
   @override
@@ -609,6 +604,7 @@ class _TopBar extends StatelessWidget {
               ],
             ),
           ),
+          ?pin,
           Builder(
             // 独立 context：桌面对话框中菜单锚定在按钮下方
             builder: (buttonContext) => IconButton(
