@@ -6,6 +6,10 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+/// 解析 `spotify:track:xxx`（及 `album` / `playlist` / `artist`）或 `open.spotify.com` 分享链接。
+SpotifyLinkTarget? parseSpotifyLink({required String input}) =>
+    RustLib.instance.api.crateApiProtocolParseSpotifyLink(input: input);
+
 /// 从 22 位 base62 ID 解析出 16 字节原始 GID。
 Uint8List spotifyIdFromBase62({required String src}) =>
     RustLib.instance.api.crateApiProtocolSpotifyIdFromBase62(src: src);
@@ -84,6 +88,126 @@ String generateWebPlayerTotpV61({required PlatformInt64 timestampMs}) => RustLib
     .api
     .crateApiProtocolGenerateWebPlayerTotpV61(timestampMs: timestampMs);
 
+/// 求解 Spotify Hashcash SHA-1 工作量证明，返回 16 字节 suffix。
+Uint8List solveHashcash({
+  required List<int> ctx,
+  required List<int> prefix,
+  required int length,
+  required PlatformInt64 timeoutMs,
+}) => RustLib.instance.api.crateApiProtocolSolveHashcash(
+  ctx: ctx,
+  prefix: prefix,
+  length: length,
+  timeoutMs: timeoutMs,
+);
+
+/// 解析单轨分段 AAC/CENC (fMP4) 音频容器。
+CencParsedDto parseCencAudio({required List<int> bytes}) =>
+    RustLib.instance.api.crateApiProtocolParseCencAudio(bytes: bytes);
+
+/// 从 HLS 清单提取并校验 Widevine PSSH 初始化数据。
+Uint8List? widevinePsshFromHls({required String manifest}) => RustLib
+    .instance
+    .api
+    .crateApiProtocolWidevinePsshFromHls(manifest: manifest);
+
+/// 使用 Shannon 流密码编码单帧 AP 数据包。
+Uint8List shannonEncodePacket({
+  required List<int> key,
+  required int nonce,
+  required int cmd,
+  required List<int> payload,
+}) => RustLib.instance.api.crateApiProtocolShannonEncodePacket(
+  key: key,
+  nonce: nonce,
+  cmd: cmd,
+  payload: payload,
+);
+
+/// CENC 容器解析结果。
+class CencParsedDto {
+  final Uint8List pssh;
+  final List<CencSampleDto> samples;
+  final List<CencPatchDto> patches;
+
+  const CencParsedDto({
+    required this.pssh,
+    required this.samples,
+    required this.patches,
+  });
+
+  @override
+  int get hashCode => pssh.hashCode ^ samples.hashCode ^ patches.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CencParsedDto &&
+          runtimeType == other.runtimeType &&
+          pssh == other.pssh &&
+          samples == other.samples &&
+          patches == other.patches;
+}
+
+/// CENC 清晰化 box 类型替换位置。
+class CencPatchDto {
+  final PlatformInt64 offset;
+  final String boxType;
+
+  const CencPatchDto({required this.offset, required this.boxType});
+
+  @override
+  int get hashCode => offset.hashCode ^ boxType.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CencPatchDto &&
+          runtimeType == other.runtimeType &&
+          offset == other.offset &&
+          boxType == other.boxType;
+}
+
+/// CENC 加密音频单个样本元数据。
+class CencSampleDto {
+  final PlatformInt64 offset;
+  final PlatformInt64 size;
+  final Uint8List kid;
+  final Uint8List iv;
+  final Uint32List subsampleClear;
+  final Uint32List subsampleCipher;
+
+  const CencSampleDto({
+    required this.offset,
+    required this.size,
+    required this.kid,
+    required this.iv,
+    required this.subsampleClear,
+    required this.subsampleCipher,
+  });
+
+  @override
+  int get hashCode =>
+      offset.hashCode ^
+      size.hashCode ^
+      kid.hashCode ^
+      iv.hashCode ^
+      subsampleClear.hashCode ^
+      subsampleCipher.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CencSampleDto &&
+          runtimeType == other.runtimeType &&
+          offset == other.offset &&
+          size == other.size &&
+          kid == other.kid &&
+          iv == other.iv &&
+          subsampleClear == other.subsampleClear &&
+          subsampleCipher == other.subsampleCipher;
+}
+
 /// 音频响度均衡数据。
 class NormalizationInfo {
   final double trackGainDb;
@@ -108,4 +232,29 @@ class NormalizationInfo {
           trackGainDb == other.trackGainDb &&
           trackPeak == other.trackPeak &&
           volumeFactor == other.volumeFactor;
+}
+
+/// 解析出的 Spotify 分享链接 / URI 目标。
+class SpotifyLinkTarget {
+  final String kind;
+  final String id;
+  final String uri;
+
+  const SpotifyLinkTarget({
+    required this.kind,
+    required this.id,
+    required this.uri,
+  });
+
+  @override
+  int get hashCode => kind.hashCode ^ id.hashCode ^ uri.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SpotifyLinkTarget &&
+          runtimeType == other.runtimeType &&
+          kind == other.kind &&
+          id == other.id &&
+          uri == other.uri;
 }
