@@ -243,6 +243,41 @@ pub fn encode_ap_packet(key: &[u8], nonce: u32, cmd: u8, payload: &[u8]) -> Vec<
     frame
 }
 
+/// 解密 AP 包的 3 字节头 `cmd + len(BE)`（先于包体到达，用来得知包体长度）。
+pub fn decrypt_ap_header(key: &[u8], nonce: u32, header: &[u8]) -> Result<Vec<u8>, String> {
+    if header.len() != 3 {
+        return Err("AP header must be 3 bytes".to_string());
+    }
+    let mut s = Shannon::new(key);
+    s.nonce_u32(nonce);
+    let mut out = header.to_vec();
+    s.decrypt(&mut out);
+    Ok(out)
+}
+
+/// 解密并校验一个完整 AP 包（头、体按收包时的两次调用解密，MAC 不符返回错误），返回包体明文。
+pub fn decode_ap_packet(
+    key: &[u8],
+    nonce: u32,
+    header: &[u8],
+    body: &[u8],
+    mac: &[u8],
+) -> Result<Vec<u8>, String> {
+    if header.len() != 3 || mac.len() != 4 {
+        return Err("bad AP frame".to_string());
+    }
+    let mut s = Shannon::new(key);
+    s.nonce_u32(nonce);
+    let mut head = header.to_vec();
+    s.decrypt(&mut head);
+    let mut payload = body.to_vec();
+    s.decrypt(&mut payload);
+    if s.finish(4) != mac {
+        return Err("AP packet MAC mismatch".to_string());
+    }
+    Ok(payload)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -302,5 +337,36 @@ mod tests {
             "30fe46ab823ff84de8838bde5429066e16d50f58a2935d8c3df322a3e27d"
         );
         assert_eq!(hex_of(&shannon.finish(4)), "ca143ce1");
+    }
+
+    #[test]
+    fn ap_frames_match_dart_and_round_trip() {
+        use crate::test_vectors::{hex as h, vector};
+        let key = h(&vector("sendKey"));
+        let payloads: [Vec<u8>; 3] = [
+            vec![],
+            (1..=5).collect(),
+            (0..1000u32).map(|i| ((i * 13) & 0xff) as u8).collect(),
+        ];
+        for (i, payload) in payloads.iter().enumerate() {
+            let frame = encode_ap_packet(&key, i as u32, 0x40 + i as u8, payload);
+            assert_eq!(hex_of(&frame), vector(&format!("frame{i}")));
+            let header = decrypt_ap_header(&key, i as u32, &frame[..3]).unwrap();
+            assert_eq!(header[0], 0x40 + i as u8);
+            let len = ((header[1] as usize) << 8) | header[2] as usize;
+            assert_eq!(len, payload.len());
+            let body = decode_ap_packet(&key, i as u32, &frame[..3], &frame[3..3 + len], &frame[3 + len..]).unwrap();
+            assert_eq!(&body, payload);
+        }
+    }
+
+    #[test]
+    fn ap_packet_rejects_bad_mac() {
+        let key = hex(KEY_HEX);
+        let mut frame = encode_ap_packet(&key, 3, 0x10, &[9, 8, 7]);
+        let last = frame.len() - 1;
+        frame[last] ^= 1;
+        assert!(decode_ap_packet(&key, 3, &frame[..3], &frame[3..6], &frame[6..]).is_err());
+        assert!(decrypt_ap_header(&key, 3, &frame[..2]).is_err());
     }
 }

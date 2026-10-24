@@ -1,5 +1,7 @@
 use crate::aes::{AesCipher, AesCtr};
+use crate::ap_crypto;
 use crate::audio_normalization::AudioNormalization;
+use crate::file_hash;
 use crate::hashcash;
 use crate::shannon;
 use crate::spotify_id::SpotifyId;
@@ -134,4 +136,63 @@ pub fn solve_hashcash(
 #[flutter_rust_bridge::frb(sync)]
 pub fn shannon_encode_packet(key: Vec<u8>, nonce: u32, cmd: u8, payload: Vec<u8>) -> Vec<u8> {
     shannon::encode_ap_packet(&key, nonce, cmd, &payload)
+}
+
+/// 解密 AP 包的 3 字节头（`cmd + len(BE)`），用来得知包体长度。
+#[flutter_rust_bridge::frb(sync)]
+pub fn shannon_decrypt_header(key: Vec<u8>, nonce: u32, header: Vec<u8>) -> Result<Vec<u8>, String> {
+    shannon::decrypt_ap_header(&key, nonce, &header)
+}
+
+/// 解密并校验完整 AP 包，返回包体明文；MAC 不符返回错误。
+#[flutter_rust_bridge::frb(sync)]
+pub fn shannon_decode_packet(
+    key: Vec<u8>,
+    nonce: u32,
+    header: Vec<u8>,
+    body: Vec<u8>,
+    mac: Vec<u8>,
+) -> Result<Vec<u8>, String> {
+    shannon::decode_ap_packet(&key, nonce, &header, &body, &mac)
+}
+
+/// AP 握手 DH：95 字节小端私钥 → 96 字节大端公钥。
+#[flutter_rust_bridge::frb(sync)]
+pub fn ap_dh_public_key(private_le: Vec<u8>) -> Result<Vec<u8>, String> {
+    ap_crypto::dh_public_key(&private_le)
+}
+
+/// AP 握手 DH：共享密钥（最小大端字节）。
+#[flutter_rust_bridge::frb(sync)]
+pub fn ap_dh_shared_secret(private_le: Vec<u8>, remote_be: Vec<u8>) -> Vec<u8> {
+    ap_crypto::dh_shared_secret(&private_le, &remote_be)
+}
+
+/// AP 握手推导出的 challenge 与收发密钥。
+pub struct ApHandshakeKeys {
+    pub challenge: Vec<u8>,
+    pub send_key: Vec<u8>,
+    pub recv_key: Vec<u8>,
+}
+
+/// 由共享密钥与握手报文推导 challenge / send_key / recv_key。
+#[flutter_rust_bridge::frb(sync)]
+pub fn ap_compute_keys(shared_secret: Vec<u8>, handshake_packets: Vec<u8>) -> ApHandshakeKeys {
+    let keys = ap_crypto::compute_keys(&shared_secret, &handshake_packets);
+    ApHandshakeKeys {
+        challenge: keys.challenge,
+        send_key: keys.send_key,
+        recv_key: keys.recv_key,
+    }
+}
+
+/// 服务端 DH 公钥签名验证（RSA PKCS#1 v1.5 + SHA-1，e = 65537）。
+#[flutter_rust_bridge::frb(sync)]
+pub fn ap_rsa_verify_pkcs1_sha1(modulus: Vec<u8>, signature: Vec<u8>, message: Vec<u8>) -> bool {
+    ap_crypto::rsa_verify_pkcs1_sha1(&modulus, &signature, &message)
+}
+
+/// 文件 SHA-256（小写十六进制）。大文件耗时，在后台线程执行（非 sync），不阻塞 Dart。
+pub fn sha256_file(path: String) -> Result<String, String> {
+    file_hash::sha256_file(&path)
 }
