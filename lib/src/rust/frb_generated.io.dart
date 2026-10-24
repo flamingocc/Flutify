@@ -35,15 +35,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SpotifyLinkTarget dco_decode_box_autoadd_spotify_link_target(dynamic raw);
 
   @protected
-  CencParsedDto dco_decode_cenc_parsed_dto(dynamic raw);
-
-  @protected
-  CencPatchDto dco_decode_cenc_patch_dto(dynamic raw);
-
-  @protected
-  CencSampleDto dco_decode_cenc_sample_dto(dynamic raw);
-
-  @protected
   double dco_decode_f_64(dynamic raw);
 
   @protected
@@ -59,16 +50,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<BilingualLine> dco_decode_list_bilingual_line(dynamic raw);
 
   @protected
-  List<CencPatchDto> dco_decode_list_cenc_patch_dto(dynamic raw);
-
-  @protected
-  List<CencSampleDto> dco_decode_list_cenc_sample_dto(dynamic raw);
-
-  @protected
   List<LrcLine> dco_decode_list_lrc_line(dynamic raw);
-
-  @protected
-  Uint32List dco_decode_list_prim_u_32_strict(dynamic raw);
 
   @protected
   List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
@@ -92,9 +74,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<BilingualLine>? dco_decode_opt_list_bilingual_line(dynamic raw);
-
-  @protected
-  Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
 
   @protected
   SpotifyLinkTarget dco_decode_spotify_link_target(dynamic raw);
@@ -128,15 +107,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  CencParsedDto sse_decode_cenc_parsed_dto(SseDeserializer deserializer);
-
-  @protected
-  CencPatchDto sse_decode_cenc_patch_dto(SseDeserializer deserializer);
-
-  @protected
-  CencSampleDto sse_decode_cenc_sample_dto(SseDeserializer deserializer);
-
-  @protected
   double sse_decode_f_64(SseDeserializer deserializer);
 
   @protected
@@ -154,20 +124,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  List<CencPatchDto> sse_decode_list_cenc_patch_dto(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  List<CencSampleDto> sse_decode_list_cenc_sample_dto(
-    SseDeserializer deserializer,
-  );
-
-  @protected
   List<LrcLine> sse_decode_list_lrc_line(SseDeserializer deserializer);
-
-  @protected
-  Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer);
 
   @protected
   List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
@@ -195,9 +152,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<BilingualLine>? sse_decode_opt_list_bilingual_line(
     SseDeserializer deserializer,
   );
-
-  @protected
-  Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
   SpotifyLinkTarget sse_decode_spotify_link_target(
@@ -235,15 +189,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_cenc_parsed_dto(CencParsedDto self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_cenc_patch_dto(CencPatchDto self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_cenc_sample_dto(CencSampleDto self, SseSerializer serializer);
-
-  @protected
   void sse_encode_f_64(double self, SseSerializer serializer);
 
   @protected
@@ -262,25 +207,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
-  void sse_encode_list_cenc_patch_dto(
-    List<CencPatchDto> self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_list_cenc_sample_dto(
-    List<CencSampleDto> self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_list_lrc_line(List<LrcLine> self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_list_prim_u_32_strict(
-    Uint32List self,
-    SseSerializer serializer,
-  );
 
   @protected
   void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
@@ -315,12 +242,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_list_bilingual_line(
     List<BilingualLine>? self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_opt_list_prim_u_8_strict(
-    Uint8List? self,
     SseSerializer serializer,
   );
 
