@@ -1,6 +1,7 @@
 /// `package:media_kit` bindings for `just_audio` to support Linux and Windows.
 library just_audio_media_kit;
 
+import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter/services.dart';
@@ -72,21 +73,31 @@ class JustAudioMediaKit extends JustAudioPlatform {
 
   /// Output devices reported by libmpv. Uses a live player when one exists,
   /// otherwise a short-lived probe player.
+  ///
+  /// libmpv first reports only `auto`; real devices arrive once the audio
+  /// output has enumerated them, so wait for a non-`auto` entry (or [timeout]).
   static Future<List<AudioDevice>> audioDevices({
     Duration timeout = const Duration(seconds: 3),
   }) async {
+    bool real(List<AudioDevice> list) => list.any((d) => d.name != 'auto');
     final live = _instance?._players.values;
-    if (live != null && live.isNotEmpty) {
-      final devices = live.first.outputDevices;
-      if (devices.isNotEmpty) return devices;
+    if (live != null && live.isNotEmpty && real(live.first.outputDevices)) {
+      return live.first.outputDevices;
     }
     final probe = Player();
     try {
-      final current = probe.state.audioDevices;
-      if (current.isNotEmpty) return current;
-      return await probe.stream.audioDevices
-          .firstWhere((d) => d.isNotEmpty)
-          .timeout(timeout, onTimeout: () => const []);
+      var latest = probe.state.audioDevices;
+      if (real(latest)) return latest;
+      final done = Completer<List<AudioDevice>>();
+      final sub = probe.stream.audioDevices.listen((d) {
+        latest = d;
+        if (real(d) && !done.isCompleted) done.complete(d);
+      });
+      try {
+        return await done.future.timeout(timeout, onTimeout: () => latest);
+      } finally {
+        await sub.cancel();
+      }
     } finally {
       await probe.dispose();
     }

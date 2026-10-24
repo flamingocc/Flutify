@@ -31,8 +31,9 @@ class MediaKitAudioOutputBackend implements AudioOutputBackend {
     final devices = await JustAudioMediaKit.audioDevices();
     return [
       for (final d in devices)
-        // `auto` 即系统默认设备，单独作为第一项显示
-        if (d.name != 'auto')
+        // 只要「后端/设备」形式的真实设备（wasapi/{…}、pulse/…、alsa/…）；
+        // `auto`（系统默认，界面单独作为第一项）和 `openal` 这类后端默认项都不列出
+        if (d.name.contains('/'))
           AudioOutputDevice(d.name, d.description.isEmpty ? d.name : d.description),
     ];
   }
