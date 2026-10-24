@@ -113,6 +113,12 @@ class _BackupSectionState extends State<BackupSection> {
         if (_selectedPlaylistIds.contains(p.id)) p,
     ];
     if (selected.isEmpty) return;
+    // 在后台导入：先提示，界面不等待；完成后再提示结果
+    AppToast.show(
+      context,
+      '正在后台导入 ${selected.length} 个歌单…',
+      icon: Icons.downloading_rounded,
+    );
     final result = await service.importSelectedPlaylists(selected);
     if (!context.mounted) return;
     AppToast.show(
@@ -189,10 +195,12 @@ class _BackupSectionState extends State<BackupSection> {
       );
     }
 
-    final accounts = backupService?.accounts ?? const <BackupAccount>[];
+    // 当前登录账号自己的备份不显示；切换到别的账号后它作为「以前登录的账号」出现
+    final accounts = backupService?.visibleAccounts ?? const <BackupAccount>[];
     final playlists =
         backupService?.allBackedUpPlaylists ?? const <SpotifyPlaylist>[];
     final backingUp = backupService?.isBackingUp ?? false;
+    final importing = backupService?.isImporting ?? false;
 
     if (!_initializedSelection && playlists.isNotEmpty) {
       _initializedSelection = true;
@@ -320,7 +328,7 @@ class _BackupSectionState extends State<BackupSection> {
                     ),
                     M3EButton.icon(
                       style: M3EButtonStyle.tonal,
-                      onPressed: selectedCount == 0 || backingUp
+                      onPressed: selectedCount == 0 || backingUp || importing
                           ? null
                           : () => _importSelectedPlaylists(
                               context,
@@ -378,7 +386,10 @@ class _BackupAccountTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final badge = account.isCurrentAccount ? '本机账号' : '外部备份账号';
+    // 没有会话凭据的账号是以前在本机登录过的账号（只保留最后一次的快照，不会再远程刷新）
+    final badge = account.spDc.isEmpty && account.accessToken.isEmpty
+        ? '以前登录的账号'
+        : '外部备份账号';
     return SettingsTile(
       title: '${account.title}（$badge）',
       subtitle:
@@ -388,7 +399,7 @@ class _BackupAccountTile extends StatelessWidget {
         children: [
           Tooltip(
             message: '参与一键同步到本账号',
-            child: Switch.adaptive(
+            child: M3ESwitch(
               value: account.syncToLocal,
               onChanged: onToggleSync,
             ),

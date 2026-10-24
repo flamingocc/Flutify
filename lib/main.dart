@@ -218,6 +218,10 @@ Future<Widget> _initializeApp(ValueChanged<String> reportStage) async {
   // 上次播放会话（曲目 / 队列 / 进度）：单独的 JSON 文件，不放进 SharedPreferences
   reportStage('读取应用目录');
   final supportDir = await getApplicationSupportDirectory();
+  // 歌单备份写在独立文件（异步、后台编码），不塞进 SharedPreferences
+  PlaylistBackupService.defaultDiskFile = File(
+    '${supportDir.path}${Platform.pathSeparator}playlist_backups.json',
+  );
   final legacyArtworkDirectory =
       '${(await getTemporaryDirectory()).path}${Platform.pathSeparator}libCachedImageData';
   final audioCacheLocation = CacheLocation(

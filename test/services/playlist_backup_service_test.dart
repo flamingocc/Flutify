@@ -29,6 +29,8 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({
+      'sp_auth_method': 'desktop',
+      'sp_dc': 'local-sp-dc',
       'sp_username': 'local_user',
       'sp_display_name': 'Local User',
     });
@@ -42,9 +44,10 @@ void main() {
   tearDown(() {
     library.dispose();
     preferences.dispose();
-    if (tempDir.existsSync()) {
-      tempDir.deleteSync(recursive: true);
-    }
+    // 后台落盘可能仍占用文件：清理失败不影响结果，交给系统临时目录回收
+    try {
+      if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+    } on FileSystemException catch (_) {}
   });
 
   test('备份频率强制不低于 20 分钟以防限流，支持 20min/1h/2h/12h/1d', () {
@@ -90,6 +93,7 @@ void main() {
     // 点赞歌曲后立即落盘，无需等待定时轮询
     library.toggleLike(track1);
     expect(service.accounts.first.likedTracks.map((t) => t.id), [track1.id]);
+    await service.pendingPersist;
     expect(diskFile.existsSync(), isTrue);
 
     // 新建歌单并加歌同样立即落盘
@@ -100,6 +104,8 @@ void main() {
       service.accounts.first.playlists.first.tracks.map((t) => t.id),
       [track2.id],
     );
+
+    await service.pendingPersist;
 
     // 重新实例化的服务直接从磁盘恢复备份，不发任何网络请求
     var remoteCalls = 0;
