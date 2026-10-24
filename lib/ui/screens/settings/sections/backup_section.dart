@@ -428,6 +428,9 @@ class _BackedUpPlaylistTile extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final l10n = context.l10n;
     final isLiked = playlist.id.startsWith(BackupAccount.backupLikedPrefix);
+    final backupService = context.read<PlaylistBackupService?>();
+    final isExternalBackupLiked = isLiked &&
+        (backupService?.isExternalBackupLikedPlaylist(playlist.id) ?? true);
     final count = playlist.tracks.isNotEmpty
         ? playlist.tracks.length
         : playlist.totalTracks;
@@ -495,7 +498,9 @@ class _BackedUpPlaylistTile extends StatelessWidget {
             if (onPickTracks != null)
               IconButton(
                 icon: const Icon(Icons.checklist_rounded, size: 22),
-                tooltip: '选择部分歌曲一键导入到本账号',
+                tooltip: isExternalBackupLiked
+                    ? '选择部分歌曲一键导入到本账号'
+                    : '多选收藏歌曲',
                 onPressed: onPickTracks,
               ),
             Icon(
@@ -542,12 +547,16 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
     final allIds = tracks.map((t) => t.id).where((id) => id.isNotEmpty).toSet();
     final allSelected =
         allIds.isNotEmpty && _selectedIds.length == allIds.length;
-    final isBackupLiked =
-        widget.playlist.id.startsWith(BackupAccount.backupLikedPrefix);
+    final isExternalBackupLiked = widget.backupService
+        .isExternalBackupLikedPlaylist(widget.playlist.id);
     final selected = _selectedTracks;
 
     return AlertDialog(
-      title: Text('选择要导入的歌曲 · ${widget.playlist.name}'),
+      title: Text(
+        isExternalBackupLiked
+            ? '选择要导入的歌曲 · ${widget.playlist.name}'
+            : '多选收藏歌曲 · ${widget.playlist.name}',
+      ),
       content: SizedBox(
         width: 520,
         height: 420,
@@ -619,12 +628,14 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        if (!isBackupLiked)
+        if (isExternalBackupLiked)
           OutlinedButton.icon(
             onPressed: selected.isEmpty
                 ? null
                 : () {
                     final imported = widget.playlist.copyWith(
+                      id: 'imported_${DateTime.now().millisecondsSinceEpoch}',
+                      uri: '',
                       tracks: selected,
                       totalTracks: selected.length,
                     );
@@ -650,13 +661,19 @@ class _TrackImportDialogState extends State<_TrackImportDialog> {
                   Navigator.of(context).pop();
                   AppToast.show(
                     context,
-                    '已将所选 ${selected.length} 首歌曲合并导入到本账号「已点赞的歌曲」（新增 $added 首）',
+                    isExternalBackupLiked
+                        ? '已将所选 ${selected.length} 首歌曲合并导入到本账号「已点赞的歌曲」（新增 $added 首）'
+                        : '已收藏所选 ${selected.length} 首歌曲（新增 $added 首）',
                     icon: Icons.favorite_rounded,
                     tone: ToastTone.success,
                   );
                 },
           icon: const Icon(Icons.favorite_rounded, size: 18),
-          label: Text('合并到已点赞歌曲（${selected.length}）'),
+          label: Text(
+            isExternalBackupLiked
+                ? '合并到已点赞歌曲（${selected.length}）'
+                : '收藏所选歌曲（${selected.length}）',
+          ),
         ),
       ],
     );

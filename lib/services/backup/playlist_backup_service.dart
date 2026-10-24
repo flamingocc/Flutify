@@ -811,6 +811,13 @@ class PlaylistBackupService extends ChangeNotifier {
     return merged;
   }
 
+  /// 判断指定歌单 ID 是否为「外部备份账号的已点赞歌曲」虚拟歌单（排除本机当前账号）。
+  bool isExternalBackupLikedPlaylist(String playlistId) {
+    if (!playlistId.startsWith(BackupAccount.backupLikedPrefix)) return false;
+    final uid = playlistId.substring(BackupAccount.backupLikedPrefix.length);
+    return _accounts.any((a) => !a.isCurrentAccount && a.uniqueId == uid);
+  }
+
   /// 已落盘的备份歌单汇总：
   /// - 包含每个账号各自的「已点赞的歌曲」（`backup_liked_<uniqueId>`，点击可查看该账号自己的已点赞歌曲）；
   /// - 包含各账号的收藏歌单（不同账号间若有同 ID 或同名重合歌单，自动合并其曲目）。

@@ -120,6 +120,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final isLikedSongs = playlist.id == LibraryProvider.likedSongsId;
     final isBackupLikedSongs =
         playlist.id.startsWith(BackupAccount.backupLikedPrefix);
+    final backupService = context.watch<PlaylistBackupService?>();
+    final isExternalBackupLikedSongs = isBackupLikedSongs &&
+        (backupService?.isExternalBackupLikedPlaylist(playlist.id) ?? true);
     final isOwn = library.isOwnPlaylist(playlist.id);
     final l10n = context.l10n;
     // 「已点赞的歌曲」由 LibraryProvider 生成，名称与简介按界面语言展示
@@ -165,6 +168,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           summary: summary,
           isLikedSongs: isLikedSongs,
           isBackupLikedSongs: isBackupLikedSongs,
+          isExternalBackupLikedSongs: isExternalBackupLikedSongs,
           isOwn: isOwn,
           isSaved: isSaved,
           playbackContext: playbackContext,
@@ -193,6 +197,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     required String summary,
     required bool isLikedSongs,
     required bool isBackupLikedSongs,
+    required bool isExternalBackupLikedSongs,
     required bool isOwn,
     required bool isSaved,
     required PlaybackContext playbackContext,
@@ -267,8 +272,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               : null,
                         ),
                         tooltip: _selecting
-                            ? '退出选择歌曲'
-                            : '选择部分歌曲一键导入到本账号',
+                            ? '退出多选'
+                            : (isExternalBackupLikedSongs
+                                  ? '选择部分歌曲一键导入到本账号'
+                                  : '多选收藏歌曲'),
                         onPressed: () {
                           setState(() {
                             _selecting = !_selecting;
@@ -313,7 +320,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 context,
                 playlist: playlist,
                 visible: visible,
-                isBackupLikedSongs: isBackupLikedSongs,
+                isExternalBackupLikedSongs: isExternalBackupLikedSongs,
               ),
             ),
 
@@ -386,7 +393,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     BuildContext context, {
     required SpotifyPlaylist playlist,
     required List<SpotifyTrack> visible,
-    required bool isBackupLikedSongs,
+    required bool isExternalBackupLikedSongs,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -401,7 +408,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         if (_selectedTrackIds.contains(t.id)) t,
     ];
 
-    Future<void> importToLiked() async {
+    Future<void> likeSelectedTracks() async {
       if (selectedTracks.isEmpty) return;
       final backup = context.read<PlaylistBackupService?>();
       final library = context.read<LibraryProvider>();
@@ -419,7 +426,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       if (!context.mounted) return;
       AppToast.show(
         context,
-        '已将所选 ${selectedTracks.length} 首歌曲合并导入到本账号「已点赞的歌曲」（新增 $added 首）',
+        isExternalBackupLikedSongs
+            ? '已将所选 ${selectedTracks.length} 首歌曲合并导入到本账号「已点赞的歌曲」（新增 $added 首）'
+            : '已收藏所选 ${selectedTracks.length} 首歌曲（新增 $added 首）',
         icon: Icons.favorite_rounded,
         tone: ToastTone.success,
       );
@@ -429,6 +438,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       if (selectedTracks.isEmpty) return;
       final library = context.read<LibraryProvider>();
       final imported = playlist.copyWith(
+        id: 'imported_${DateTime.now().millisecondsSinceEpoch}',
+        uri: '',
         tracks: selectedTracks,
         totalTracks: selectedTracks.length,
       );
@@ -478,11 +489,15 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 ),
               ),
               FilledButton.icon(
-                onPressed: selectedTracks.isEmpty ? null : importToLiked,
+                onPressed: selectedTracks.isEmpty ? null : likeSelectedTracks,
                 icon: const Icon(Icons.favorite_rounded, size: 18),
-                label: const Text('一键合并到本账号已点赞歌曲'),
+                label: Text(
+                  isExternalBackupLikedSongs
+                      ? '一键合并到本账号已点赞歌曲'
+                      : '收藏所选歌曲（${selectedTracks.length}）',
+                ),
               ),
-              if (!isBackupLikedSongs)
+              if (isExternalBackupLikedSongs)
                 OutlinedButton.icon(
                   onPressed: selectedTracks.isEmpty ? null : importAsPlaylist,
                   icon: const Icon(Icons.library_add_rounded, size: 18),
