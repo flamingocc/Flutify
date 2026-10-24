@@ -317,7 +317,8 @@ class _BackupSectionState extends State<BackupSection> {
                         ),
                       ],
                     ),
-                    FilledButton.tonalIcon(
+                    M3EButton.icon(
+                      style: M3EButtonStyle.tonal,
                       onPressed: selectedCount == 0 || backingUp
                           ? null
                           : () => _importSelectedPlaylists(

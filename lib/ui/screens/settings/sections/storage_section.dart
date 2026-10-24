@@ -16,7 +16,7 @@ import '../../../../services/storage_service.dart';
 import '../widgets/settings_section.dart';
 import '../widgets/settings_segmented.dart';
 import '../../../widgets/toast/app_toast.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EDialog;
+import 'package:material_3_expressive/material_3_expressive.dart';
 
 /// 存储：音频缓存占用、缓存上限、一键清除。
 ///
@@ -431,7 +431,8 @@ class _LocationDialogState extends State<_LocationDialog> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                FilledButton.tonalIcon(
+                M3EButton.icon(
+                      style: M3EButtonStyle.tonal,
                   onPressed: _picking ? null : _pickDirectory,
                   icon: const Icon(Icons.folder_open_rounded),
                   label: Text(l10n.settingsCacheChooseDirectory),

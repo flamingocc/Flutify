@@ -1,3 +1,4 @@
+import 'package:material_3_expressive/material_3_expressive.dart';
 import 'package:flutify_app/core/utils/artwork_palette.dart';
 import 'package:flutify_app/main.dart';
 import 'package:flutify_app/l10n/app_localizations.dart';
@@ -153,7 +154,7 @@ void main() {
 
     expect(find.byType(LoginHero), findsOneWidget);
     expect(find.text('登录 Spotify'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, '登录'), findsOneWidget);
+    expect(find.widgetWithText(M3EButton, '登录'), findsOneWidget);
     // 其他登录方式已移除
     expect(find.text('账号密码'), findsNothing);
     expect(find.text('更多方式'), findsNothing);
@@ -204,7 +205,7 @@ void main() {
         tester.getRect(close).left,
         greaterThanOrEqualTo(DesktopWindow.macTrafficLightsInset),
       );
-      for (final control in [close, find.widgetWithText(FilledButton, '登录')]) {
+      for (final control in [close, find.widgetWithText(M3EButton, '登录')]) {
         await tester.drag(
           control,
           const Offset(40, 30),

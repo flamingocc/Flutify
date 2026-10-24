@@ -175,9 +175,9 @@ void main() {
     api.requests.single.result.completeError(SpotifyDataException.notSignedIn);
     await tester.pump();
     expect(find.text("Sign in to see what's here"), findsOneWidget);
-    final signIn = find.widgetWithText(OutlinedButton, 'Sign in');
+    final signIn = find.widgetWithText(M3EButton, 'Sign in');
     expect(signIn, findsOneWidget);
-    expect(tester.widget<OutlinedButton>(signIn).onPressed, isNotNull);
+    expect(tester.widget<M3EButton>(signIn).onPressed, isNotNull);
     expect(find.byIcon(Icons.lock_outline_rounded), findsOneWidget);
     expect(find.byIcon(Icons.wifi_off_rounded), findsNothing);
     expect(find.text('Retry'), findsNothing);

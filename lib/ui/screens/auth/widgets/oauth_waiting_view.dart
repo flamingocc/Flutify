@@ -75,9 +75,10 @@ class OAuthWaitingView extends StatelessWidget {
               Expanded(
                 child: SizedBox(
                   height: 52,
-                  child: FilledButton.tonalIcon(
+                  child: M3EButton.icon(
+                    style: M3EButtonStyle.tonal,
+                    size: M3EButtonSize.md,
                     onPressed: () => launch(context, url),
-                    style: FilledButton.styleFrom(shape: const StadiumBorder()),
                     icon: const Icon(Icons.open_in_new_rounded, size: 20),
                     label: Text(context.l10n.loginReopen),
                   ),
@@ -87,7 +88,9 @@ class OAuthWaitingView extends StatelessWidget {
               Expanded(
                 child: SizedBox(
                   height: 52,
-                  child: OutlinedButton.icon(
+                  child: M3EButton.icon(
+                    style: M3EButtonStyle.outlined,
+                    size: M3EButtonSize.md,
                     onPressed: () async {
                       final messenger = ScaffoldMessenger.maybeOf(context);
                       final l10n = context.l10n;
@@ -101,9 +104,6 @@ class OAuthWaitingView extends StatelessWidget {
                         tone: ToastTone.success,
                       );
                     },
-                    style: OutlinedButton.styleFrom(
-                      shape: const StadiumBorder(),
-                    ),
                     icon: const Icon(Icons.link_rounded, size: 20),
                     label: Text(context.l10n.loginCopyLink),
                   ),

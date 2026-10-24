@@ -8,7 +8,7 @@ import '../../../../services/updates/update_service.dart';
 import '../../../widgets/update_prompt.dart';
 import '../widgets/settings_menu_field.dart';
 import '../widgets/settings_section.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton;
+import 'package:material_3_expressive/material_3_expressive.dart';
 
 class UpdateSection extends StatelessWidget {
   const UpdateSection({super.key});
@@ -40,7 +40,8 @@ class UpdateSection extends StatelessWidget {
           title: '${l.updatesCurrent} · ${AppInfo.releaseTag}',
           subtitle: service.release == null ? null : '${l.updatesAvailable} ${service.release!.tag}',
           below: Wrap(spacing: 8, runSpacing: 8, children: [
-            FilledButton.tonalIcon(
+            M3EButton.icon(
+                      style: M3EButtonStyle.tonal,
               onPressed: service.busy ? null : () async {
                 if (service.release != null && service.status == UpdateStatus.ready) {
                   await showUpdateDialog(context, service);

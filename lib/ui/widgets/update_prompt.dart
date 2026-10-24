@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../l10n/l10n.dart';
 import '../../services/updates/update_release.dart';
 import '../../services/updates/update_service.dart';
-import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
+import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle, M3EDialog;
 
 Future<void> showUpdateDialog(BuildContext context, UpdateService service) => showDialog<void>(
   context: context,
@@ -18,10 +18,11 @@ Future<void> showUpdateDialog(BuildContext context, UpdateService service) => sh
       final release = service.release;
       final ready = service.status == UpdateStatus.ready;
       final android = service.target?.platform == UpdatePlatform.android;
-      return AlertDialog(
+      return M3EDialog(
         icon: Icon(ready ? Icons.download_done_rounded : Icons.system_update_rounded),
-        title: Text('${ready ? l.updatesReady : l.updatesAvailable} ${release?.tag ?? ''}'),
-        content: SizedBox(
+        title: '${ready ? l.updatesReady : l.updatesAvailable} ${release?.tag ?? ''}',
+        // SelectableText / 进度条需要 Material 祖先
+        content: Material(type: MaterialType.transparency, child: SizedBox(
           width: 520,
           child: SingleChildScrollView(
             child: Column(
@@ -48,7 +49,7 @@ Future<void> showUpdateDialog(BuildContext context, UpdateService service) => sh
               ],
             ),
           ),
-        ),
+        )),
         actions: [
           M3EButton.text(onPressed: () => Navigator.pop(context), child: Text(l.updatesLater)),
           if (service.status != UpdateStatus.installing)
