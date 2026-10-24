@@ -1215,6 +1215,22 @@ class AppLocalizationsJa extends AppLocalizations {
       '次回起動時に復元します。前回の画面がない場合は中央に表示します';
 
   @override
+  String get settingsSpotifyLinks => 'Spotify リンクを Flutify で開く';
+
+  @override
+  String get settingsSpotifyLinksSubtitle =>
+      'ブラウザや他のアプリで spotify: リンクを開くと Flutify で再生します';
+
+  @override
+  String settingsSpotifyLinksOther(String app) {
+    return '現在は $app で開きます';
+  }
+
+  @override
+  String get settingsSpotifyLinksSystem =>
+      'Windows の「既定のアプリ」で spotify: リンクに別のアプリが選ばれています。設定で Flutify を選んでください';
+
+  @override
   String get settingsConnectSection => 'Spotify Connect';
 
   @override

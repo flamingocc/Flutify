@@ -1260,6 +1260,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Restored at next launch; centred again if the screen it was on is gone';
 
   @override
+  String get settingsSpotifyLinks => 'Open Spotify links with Flutify';
+
+  @override
+  String get settingsSpotifyLinksSubtitle =>
+      'spotify: links clicked in a browser or another app play in Flutify';
+
+  @override
+  String settingsSpotifyLinksOther(String app) {
+    return 'Currently opened by $app';
+  }
+
+  @override
+  String get settingsSpotifyLinksSystem =>
+      'Windows Default apps has another program chosen for spotify: links. Choose Flutify there.';
+
+  @override
   String get settingsConnectSection => 'Spotify Connect';
 
   @override

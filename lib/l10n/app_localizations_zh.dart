@@ -1213,6 +1213,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsRememberWindowSubtitle => '下次启动时还原；显示器变化导致窗口不可见时回到屏幕中央';
 
   @override
+  String get settingsSpotifyLinks => '用 Flutify 打开 Spotify 链接';
+
+  @override
+  String get settingsSpotifyLinksSubtitle =>
+      '浏览器或其他程序里点开 spotify: 链接时直接在 Flutify 中播放';
+
+  @override
+  String settingsSpotifyLinksOther(String app) {
+    return '当前由 $app 打开';
+  }
+
+  @override
+  String get settingsSpotifyLinksSystem =>
+      'Windows「默认应用」里已为 spotify: 链接选择了其他程序，请在系统设置中改为 Flutify';
+
+  @override
   String get settingsConnectSection => 'Spotify Connect';
 
   @override
@@ -3215,6 +3231,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsRememberWindowSubtitle => '下次啟動時還原；顯示器變化導致視窗不可見時回到螢幕中央';
+
+  @override
+  String get settingsSpotifyLinks => '用 Flutify 開啟 Spotify 連結';
+
+  @override
+  String get settingsSpotifyLinksSubtitle =>
+      '在瀏覽器或其他程式中點開 spotify: 連結時直接在 Flutify 中播放';
+
+  @override
+  String settingsSpotifyLinksOther(String app) {
+    return '目前由 $app 開啟';
+  }
+
+  @override
+  String get settingsSpotifyLinksSystem =>
+      'Windows「預設應用程式」已為 spotify: 連結選擇其他程式，請在系統設定中改為 Flutify';
 
   @override
   String get settingsConnectSection => 'Spotify Connect';

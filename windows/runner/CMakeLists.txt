@@ -11,6 +11,7 @@ add_executable(${BINARY_NAME} WIN32
   "main.cpp"
   "media_controls.cpp"
   "media_identity.cpp"
+  "protocol_handler.cpp"
   "snap_layout.cpp"
   "system_proxy_windows.cpp"
   "taskbar_lyrics.cpp"

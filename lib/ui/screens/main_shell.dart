@@ -13,6 +13,7 @@ import '../../models/track.dart';
 import '../../providers/playback_provider.dart';
 import '../../providers/preferences_provider.dart';
 import '../../providers/spotify_provider.dart';
+import '../../services/deep_link/spotify_link_handler.dart';
 import '../../services/storage_service.dart';
 import '../navigation/app_routes.dart';
 import '../navigation/content_history.dart';
@@ -94,9 +95,17 @@ class _MainShellState extends State<MainShell> {
       playback: PlaybackShortcuts.actions(context),
     );
     MacMenuBar.actions.value = _menuActions;
+    // 系统里点开的 spotify: 链接：等首帧（导航器就绪）后再接收
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(SpotifyLinkHandler.attach(_onExternalLink));
+    });
   }
 
   late final MacMenuActions _menuActions;
+
+  void _onExternalLink(String link) {
+    if (mounted) unawaited(_tryOpenSpotifyLink(link));
+  }
 
   // 根部鼠标监听与原生菜单不受模态路由的焦点隔离保护。
   // 弹窗、播放器或全屏歌词覆盖主界面时，保留底下的内容历史。
@@ -135,6 +144,7 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    SpotifyLinkHandler.detach(_onExternalLink);
     AppRoutes.contentNavigator = null;
     AppRoutes.navigateBack = null;
     AppRoutes.navigateForward = null;

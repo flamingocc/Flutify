@@ -2327,6 +2327,30 @@ abstract class AppLocalizations {
   /// **'下次启动时还原；显示器变化导致窗口不可见时回到屏幕中央'**
   String get settingsRememberWindowSubtitle;
 
+  /// No description provided for @settingsSpotifyLinks.
+  ///
+  /// In zh, this message translates to:
+  /// **'用 Flutify 打开 Spotify 链接'**
+  String get settingsSpotifyLinks;
+
+  /// No description provided for @settingsSpotifyLinksSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'浏览器或其他程序里点开 spotify: 链接时直接在 Flutify 中播放'**
+  String get settingsSpotifyLinksSubtitle;
+
+  /// No description provided for @settingsSpotifyLinksOther.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前由 {app} 打开'**
+  String settingsSpotifyLinksOther(String app);
+
+  /// No description provided for @settingsSpotifyLinksSystem.
+  ///
+  /// In zh, this message translates to:
+  /// **'Windows「默认应用」里已为 spotify: 链接选择了其他程序，请在系统设置中改为 Flutify'**
+  String get settingsSpotifyLinksSystem;
+
   /// No description provided for @settingsConnectSection.
   ///
   /// In zh, this message translates to:
