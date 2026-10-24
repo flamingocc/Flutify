@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
+    show ExternalLibrary;
 
 import '../src/rust/frb_generated.dart';
 
@@ -14,10 +16,15 @@ class RustCore {
   static bool _ready = false;
   static bool get ready => _ready;
 
-  static Future<void> initialize({bool exitOnFailure = true}) async {
+  /// [externalLibrary]：测试里加载本地编译的动态库（rust/flutify_core/target/release），
+  /// 用来核对 Rust 与纯 Dart 实现逐字节一致。
+  static Future<void> initialize({
+    bool exitOnFailure = true,
+    ExternalLibrary? externalLibrary,
+  }) async {
     if (_ready) return;
     try {
-      await RustLib.init();
+      await RustLib.init(externalLibrary: externalLibrary);
       _ready = true;
     } catch (e, st) {
       debugPrint('Rust 核心加载失败：$e\n$st');
