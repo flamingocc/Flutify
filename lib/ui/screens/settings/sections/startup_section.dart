@@ -51,7 +51,7 @@ class StartupSection extends StatelessWidget {
             value: rememberWindow,
             onChanged: (v) => provider.update(provider.prefs.copyWith(rememberWindow: v)),
           ),
-        if (SpotifyLinkHandler.isSupported) const _SpotifyLinksTile(),
+        if (SpotifyLinkHandler.canSetDefault) const _SpotifyLinksTile(),
       ],
     );
   }

@@ -4,16 +4,21 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// 系统里点开的 `spotify:` / `open.spotify.com` 链接（目前仅 Windows）。
+/// 系统里点开的 `spotify:` / `open.spotify.com` 链接（Windows、Android）。
 ///
-/// 原生侧（windows/runner/protocol_handler.cpp）负责注册协议与单实例转发：
+/// 原生侧负责注册与转发（Windows：windows/runner/protocol_handler.cpp，单实例转发；
+/// Android：SpotifyLinkPlugin.kt，intent-filter + singleTask 的 onNewIntent）：
 /// 启动参数里的链接经 `initialLink` 取一次，运行中其他实例转发来的链接经 `openLink` 推送。
 class SpotifyLinkHandler {
   SpotifyLinkHandler._();
 
   static const MethodChannel _channel = MethodChannel('flutify/protocol');
 
-  static bool get isSupported => !kIsWeb && Platform.isWindows;
+  static bool get isSupported =>
+      !kIsWeb && (Platform.isWindows || Platform.isAndroid);
+
+  /// 能否在应用内「设为默认」：仅 Windows；Android 由系统的打开方式选择器决定。
+  static bool get canSetDefault => !kIsWeb && Platform.isWindows;
 
   static void Function(String link)? _onLink;
 
@@ -56,7 +61,7 @@ class SpotifyLinkHandler {
 
   /// 系统当前用谁打开 `spotify:` 链接。
   static Future<SpotifyLinkStatus?> status() async {
-    if (!isSupported) return null;
+    if (!canSetDefault) return null;
     try {
       final map = await _channel.invokeMapMethod<String, Object?>('status');
       if (map == null) return null;
@@ -73,7 +78,7 @@ class SpotifyLinkHandler {
 
   /// 设为默认（备份原处理程序）或恢复原处理程序。
   static Future<SpotifyLinkSetResult> setDefault(bool enable) async {
-    if (!isSupported) return SpotifyLinkSetResult.failed;
+    if (!canSetDefault) return SpotifyLinkSetResult.failed;
     try {
       final result = await _channel.invokeMethod<String>('setDefault', enable);
       return switch (result) {
