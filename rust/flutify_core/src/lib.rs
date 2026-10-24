@@ -12,6 +12,7 @@ pub mod artist_match;
 pub mod audio_normalization;
 pub mod file_hash;
 pub mod hashcash;
+pub mod http_client;
 pub mod lrc;
 pub mod lyric_script;
 pub mod lyrics_title;

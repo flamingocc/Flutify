@@ -3,6 +3,7 @@ use crate::ap_crypto;
 use crate::audio_normalization::AudioNormalization;
 use crate::file_hash;
 use crate::hashcash;
+use crate::http_client;
 use crate::shannon;
 use crate::spotify_id::SpotifyId;
 use crate::spotify_link;
@@ -195,4 +196,51 @@ pub fn ap_rsa_verify_pkcs1_sha1(modulus: Vec<u8>, signature: Vec<u8>, message: V
 /// 文件 SHA-256（小写十六进制）。大文件耗时，在后台线程执行（非 sync），不阻塞 Dart。
 pub fn sha256_file(path: String) -> Result<String, String> {
     file_hash::sha256_file(&path)
+}
+
+/// HTTP 头（名称 / 值）。
+pub struct HttpHeaderEntry {
+    pub name: String,
+    pub value: String,
+}
+
+/// HTTP 响应（完整响应体）。
+pub struct HttpResponseData {
+    pub status: u16,
+    pub headers: Vec<HttpHeaderEntry>,
+    pub body: Vec<u8>,
+    /// 实际协商到的协议（`HTTP/2.0` / `HTTP/1.1`）。
+    pub version: String,
+}
+
+/// 经 Rust HTTP/2 客户端发请求（仅直连；代理 / 网关由 Dart 侧判断后不走这里）。
+/// 错误以 `connect:`（未发出，可安全改走其他通道）/ `timeout:` / `request:` 开头。
+pub async fn http_send(
+    method: String,
+    url: String,
+    headers: Vec<HttpHeaderEntry>,
+    body: Vec<u8>,
+    timeout_ms: u64,
+) -> Result<HttpResponseData, String> {
+    let response = http_client::send(
+        method,
+        url,
+        headers
+            .into_iter()
+            .map(|h| http_client::HttpHeader { name: h.name, value: h.value })
+            .collect(),
+        body,
+        timeout_ms,
+    )
+    .await?;
+    Ok(HttpResponseData {
+        status: response.status,
+        headers: response
+            .headers
+            .into_iter()
+            .map(|h| HttpHeaderEntry { name: h.name, value: h.value })
+            .collect(),
+        body: response.body,
+        version: response.version,
+    })
 }
