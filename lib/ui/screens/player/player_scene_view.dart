@@ -279,7 +279,7 @@ class _PlayerSceneViewState extends State<PlayerSceneView> {
             onToggle: _toggle,
             lyricsProgress: progress,
             devicesOpen: _devicesOpen,
-            pin: widget.onPinnedChanged != null && _view != PlayerView.artwork
+            pin: widget.controlsOnLeft && widget.onPinnedChanged != null
                 ? _PinButton(
                     pinned: widget.pinned,
                     onChanged: widget.onPinnedChanged!,
@@ -393,6 +393,21 @@ class _PlayerSceneViewState extends State<PlayerSceneView> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const LyricsTranslationButton(),
+                  if (widget.onPinnedChanged != null) ...[
+                    const SizedBox(width: 8),
+                    GlassIconButton(
+                      icon: widget.pinned
+                          ? Icons.push_pin_rounded
+                          : Icons.push_pin_outlined,
+                      size: 36,
+                      selected: widget.pinned,
+                      tooltip: widget.pinned
+                          ? context.l10n.lyricsUnpinControls
+                          : context.l10n.lyricsPinControls,
+                      onPressed: () =>
+                          widget.onPinnedChanged!(!widget.pinned),
+                    ),
+                  ],
                   // 桌面对话框里额外提供沉浸式全屏歌词入口。
                   if (widget.immersiveEntry &&
                       MediaQuery.sizeOf(context).width >= 800) ...[
