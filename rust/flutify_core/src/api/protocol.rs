@@ -1,7 +1,30 @@
 use crate::aes::{AesCipher, AesCtr};
 use crate::audio_normalization::AudioNormalization;
+use crate::cenc;
+use crate::hashcash;
+use crate::shannon;
 use crate::spotify_id::SpotifyId;
+use crate::spotify_link;
 use crate::web_totp;
+use crate::widevine_init_data;
+
+/// 解析出的 Spotify 分享链接 / URI 目标。
+pub struct SpotifyLinkTarget {
+    pub kind: String,
+    pub id: String,
+    pub uri: String,
+}
+
+/// 解析 `spotify:track:xxx`（及 `album` / `playlist` / `artist`）或 `open.spotify.com` 分享链接。
+#[flutter_rust_bridge::frb(sync)]
+pub fn parse_spotify_link(input: String) -> Option<SpotifyLinkTarget> {
+    let link = spotify_link::parse_spotify_link(&input)?;
+    Some(SpotifyLinkTarget {
+        kind: link.kind,
+        id: link.id,
+        uri: link.uri,
+    })
+}
 
 /// 从 22 位 base62 ID 解析出 16 字节原始 GID。
 #[flutter_rust_bridge::frb(sync)]
@@ -95,4 +118,80 @@ pub fn generate_totp(secret: Vec<u8>, timestamp_ms: i64, period: i64, digits: u3
 #[flutter_rust_bridge::frb(sync)]
 pub fn generate_web_player_totp_v61(timestamp_ms: i64) -> String {
     web_totp::web_player_totp_v61(timestamp_ms)
+}
+
+/// 求解 Spotify Hashcash SHA-1 工作量证明，返回 16 字节 suffix。
+#[flutter_rust_bridge::frb(sync)]
+pub fn solve_hashcash(
+    ctx: Vec<u8>,
+    prefix: Vec<u8>,
+    length: u32,
+    timeout_ms: i64,
+) -> Result<Vec<u8>, String> {
+    let ms = timeout_ms.max(1) as u64;
+    Ok(hashcash::solve_hashcash(&ctx, &prefix, length, ms)?.to_vec())
+}
+
+/// CENC 加密音频单个样本元数据。
+pub struct CencSampleDto {
+    pub offset: i64,
+    pub size: i64,
+    pub kid: Vec<u8>,
+    pub iv: Vec<u8>,
+    pub subsample_clear: Vec<u32>,
+    pub subsample_cipher: Vec<u32>,
+}
+
+/// CENC 清晰化 box 类型替换位置。
+pub struct CencPatchDto {
+    pub offset: i64,
+    pub box_type: String,
+}
+
+/// CENC 容器解析结果。
+pub struct CencParsedDto {
+    pub pssh: Vec<u8>,
+    pub samples: Vec<CencSampleDto>,
+    pub patches: Vec<CencPatchDto>,
+}
+
+/// 解析单轨分段 AAC/CENC (fMP4) 音频容器。
+#[flutter_rust_bridge::frb(sync)]
+pub fn parse_cenc_audio(bytes: Vec<u8>) -> Result<CencParsedDto, String> {
+    let parsed = cenc::parse_cenc_audio(&bytes).map_err(|e| e.to_wire_string())?;
+    Ok(CencParsedDto {
+        pssh: parsed.pssh,
+        samples: parsed
+            .samples
+            .into_iter()
+            .map(|s| CencSampleDto {
+                offset: s.offset as i64,
+                size: s.size as i64,
+                kid: s.kid,
+                iv: s.iv,
+                subsample_clear: s.subsamples.iter().map(|sub| sub.clear).collect(),
+                subsample_cipher: s.subsamples.iter().map(|sub| sub.cipher).collect(),
+            })
+            .collect(),
+        patches: parsed
+            .patches
+            .into_iter()
+            .map(|p| CencPatchDto {
+                offset: p.offset as i64,
+                box_type: p.box_type.iter().map(|&b| b as char).collect(),
+            })
+            .collect(),
+    })
+}
+
+/// 从 HLS 清单提取并校验 Widevine PSSH 初始化数据。
+#[flutter_rust_bridge::frb(sync)]
+pub fn widevine_pssh_from_hls(manifest: String) -> Result<Option<Vec<u8>>, String> {
+    widevine_init_data::widevine_pssh_from_hls(&manifest)
+}
+
+/// 使用 Shannon 流密码编码单帧 AP 数据包。
+#[flutter_rust_bridge::frb(sync)]
+pub fn shannon_encode_packet(key: Vec<u8>, nonce: u32, cmd: u8, payload: Vec<u8>) -> Vec<u8> {
+    shannon::encode_ap_packet(&key, nonce, cmd, &payload)
 }

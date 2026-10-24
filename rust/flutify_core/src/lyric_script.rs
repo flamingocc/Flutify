@@ -21,7 +21,7 @@ impl Script {
     pub const COUNT: usize = 10;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub enum LyricLang {
     Zh = 0,
