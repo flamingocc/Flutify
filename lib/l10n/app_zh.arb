@@ -993,5 +993,14 @@
   "settingsFlymeLyricsSubtitle": "播放时在魅族 Flyme 的状态栏显示当前歌词行",
   "audioOutputTitle": "本机音频设备",
   "audioOutputSystemDefault": "系统默认设备",
-  "audioOutputSelected": "正在输出"
+  "audioOutputSelected": "正在输出",
+  "audioOutputSystemSwitcher": "选择输出设备",
+  "audioOutputSystemSwitcherSubtitle": "打开系统输出面板：手机扬声器、蓝牙、有线耳机",
+  "audioOutputSystemUnavailable": "此系统没有可用的输出切换面板",
+  "audioOutputWebViewNote": "当前由浏览器内核播放，暂不支持切换，使用系统默认设备",
+  "playbackEngineCurrent": "当前播放引擎：{engine}",
+  "playbackEngineLocal": "本机播放器",
+  "playbackEngineWebView": "WebView（浏览器内核）",
+  "playbackEngineAndroid": "Android 原生播放",
+  "@playbackEngineCurrent": {"description": "设备面板里显示当前实际出声的播放引擎", "placeholders": {"engine": {"type": "String"}}}
 }

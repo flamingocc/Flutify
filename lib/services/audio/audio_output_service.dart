@@ -53,9 +53,22 @@ class AudioOutputService extends ChangeNotifier {
   /// 选择变化时写回设置。
   final void Function(String id)? onSelected;
 
-  AudioOutputService(this._backend, {String initial = '', this.onSelected})
+  /// 浏览器内核（WebView2 EME）出声时按设备名匹配输出设备：选择或设备列表变化时下发设备名
+  /// （空串 = 系统默认）。
+  final void Function(String label)? labelSink;
+
+  AudioOutputService(
+    this._backend, {
+    String initial = '',
+    this.onSelected,
+    this.labelSink,
+  })
     : _selected = initial {
-    if (initial.isNotEmpty) unawaited(_apply(initial));
+    if (initial.isNotEmpty) {
+      unawaited(_apply(initial));
+      // EME 需要设备名：启动时列一次设备，解析出名字后下发
+      if (labelSink != null) unawaited(refresh());
+    }
   }
 
   /// 当前平台是否支持（Windows / Linux 走 libmpv）。
@@ -91,7 +104,24 @@ class AudioOutputService extends ChangeNotifier {
       await select('');
       return;
     }
+    _sendLabel();
     notifyListeners();
+  }
+
+  void _sendLabel() {
+    final sink = labelSink;
+    if (sink == null) return;
+    if (_selected.isEmpty) {
+      sink('');
+      return;
+    }
+    for (final d in _devices) {
+      if (d.id == _selected) {
+        sink(d.label);
+        return;
+      }
+    }
+    // 设备列表还没取到：等 refresh 之后再发
   }
 
   Future<void> select(String id) async {
@@ -99,6 +129,7 @@ class AudioOutputService extends ChangeNotifier {
     _selected = id;
     notifyListeners();
     onSelected?.call(id);
+    _sendLabel();
     await _apply(id);
   }
 

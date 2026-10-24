@@ -1980,6 +1980,32 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get audioOutputSelected => '正在输出';
+
+  @override
+  String get audioOutputSystemSwitcher => '选择输出设备';
+
+  @override
+  String get audioOutputSystemSwitcherSubtitle => '打开系统输出面板：手机扬声器、蓝牙、有线耳机';
+
+  @override
+  String get audioOutputSystemUnavailable => '此系统没有可用的输出切换面板';
+
+  @override
+  String get audioOutputWebViewNote => '当前由浏览器内核播放，暂不支持切换，使用系统默认设备';
+
+  @override
+  String playbackEngineCurrent(String engine) {
+    return '当前播放引擎：$engine';
+  }
+
+  @override
+  String get playbackEngineLocal => '本机播放器';
+
+  @override
+  String get playbackEngineWebView => 'WebView（浏览器内核）';
+
+  @override
+  String get playbackEngineAndroid => 'Android 原生播放';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -3957,4 +3983,30 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get audioOutputSelected => '正在輸出';
+
+  @override
+  String get audioOutputSystemSwitcher => '選擇輸出裝置';
+
+  @override
+  String get audioOutputSystemSwitcherSubtitle => '開啟系統輸出面板：手機揚聲器、藍牙、有線耳機';
+
+  @override
+  String get audioOutputSystemUnavailable => '此系統沒有可用的輸出切換面板';
+
+  @override
+  String get audioOutputWebViewNote => '目前由瀏覽器核心播放，暫不支援切換，使用系統預設裝置';
+
+  @override
+  String playbackEngineCurrent(String engine) {
+    return '目前播放引擎：$engine';
+  }
+
+  @override
+  String get playbackEngineLocal => '本機播放器';
+
+  @override
+  String get playbackEngineWebView => 'WebView（瀏覽器核心）';
+
+  @override
+  String get playbackEngineAndroid => 'Android 原生播放';
 }

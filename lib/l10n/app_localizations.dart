@@ -3772,6 +3772,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'正在输出'**
   String get audioOutputSelected;
+
+  /// No description provided for @audioOutputSystemSwitcher.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择输出设备'**
+  String get audioOutputSystemSwitcher;
+
+  /// No description provided for @audioOutputSystemSwitcherSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开系统输出面板：手机扬声器、蓝牙、有线耳机'**
+  String get audioOutputSystemSwitcherSubtitle;
+
+  /// No description provided for @audioOutputSystemUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'此系统没有可用的输出切换面板'**
+  String get audioOutputSystemUnavailable;
+
+  /// No description provided for @audioOutputWebViewNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前由浏览器内核播放，暂不支持切换，使用系统默认设备'**
+  String get audioOutputWebViewNote;
+
+  /// 设备面板里显示当前实际出声的播放引擎
+  ///
+  /// In zh, this message translates to:
+  /// **'当前播放引擎：{engine}'**
+  String playbackEngineCurrent(String engine);
+
+  /// No description provided for @playbackEngineLocal.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机播放器'**
+  String get playbackEngineLocal;
+
+  /// No description provided for @playbackEngineWebView.
+  ///
+  /// In zh, this message translates to:
+  /// **'WebView（浏览器内核）'**
+  String get playbackEngineWebView;
+
+  /// No description provided for @playbackEngineAndroid.
+  ///
+  /// In zh, this message translates to:
+  /// **'Android 原生播放'**
+  String get playbackEngineAndroid;
 }
 
 class _AppLocalizationsDelegate

@@ -2096,4 +2096,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get audioOutputSelected => 'Playing here';
+
+  @override
+  String get audioOutputSystemSwitcher => 'Choose output device';
+
+  @override
+  String get audioOutputSystemSwitcherSubtitle =>
+      'Open the system output panel: phone speaker, Bluetooth, wired headphones';
+
+  @override
+  String get audioOutputSystemUnavailable =>
+      'This system has no output switcher';
+
+  @override
+  String get audioOutputWebViewNote =>
+      'Playing through the browser engine; switching is not supported yet, using the system default';
+
+  @override
+  String playbackEngineCurrent(String engine) {
+    return 'Playback engine: $engine';
+  }
+
+  @override
+  String get playbackEngineLocal => 'Local player';
+
+  @override
+  String get playbackEngineWebView => 'WebView (browser engine)';
+
+  @override
+  String get playbackEngineAndroid => 'Android native';
 }

@@ -699,5 +699,13 @@
   "settingsFlymeLyricsSubtitle": "Show the current lyric line in the Meizu Flyme status bar while playing",
   "audioOutputTitle": "Audio output on this device",
   "audioOutputSystemDefault": "System default",
-  "audioOutputSelected": "Playing here"
+  "audioOutputSelected": "Playing here",
+  "audioOutputSystemSwitcher": "Choose output device",
+  "audioOutputSystemSwitcherSubtitle": "Open the system output panel: phone speaker, Bluetooth, wired headphones",
+  "audioOutputSystemUnavailable": "This system has no output switcher",
+  "audioOutputWebViewNote": "Playing through the browser engine; switching is not supported yet, using the system default",
+  "playbackEngineCurrent": "Playback engine: {engine}",
+  "playbackEngineLocal": "Local player",
+  "playbackEngineWebView": "WebView (browser engine)",
+  "playbackEngineAndroid": "Android native"
 }

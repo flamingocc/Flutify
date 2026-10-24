@@ -1,13 +1,18 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/theme/flutify_tokens.dart';
 import '../../../l10n/l10n.dart';
 import '../../../providers/connect_provider.dart';
 import '../../../providers/playback_provider.dart';
+import '../../../services/audio/audio_engine.dart';
 import '../../../services/audio/audio_output_service.dart';
+import '../../widgets/toast/app_toast.dart';
 import '../../../services/connect/connect_service.dart' show ConnectStatus;
 import '../../shell/shell_breakpoints.dart';
 import '../../widgets/connect/connect_actions.dart';
@@ -633,8 +638,10 @@ class _InlineRow extends StatelessWidget {
   }
 }
 
-/// 「本机音频设备」：本机正在播放时，在设备面板里切换输出到哪个扬声器 / 耳机（Spotify 桌面端同款）。
-/// 没有 [AudioOutputService]（不支持的平台、测试）时不显示。
+/// 「本机音频设备」：本机正在播放时切换输出设备（Spotify 同款）。
+/// - Windows / Linux：列出 libmpv 输出设备直接切换；WebView 出声时浏览器内核不跟随，如实提示；
+/// - Android：打开系统输出切换面板（手机扬声器 / 蓝牙 / 耳机）；
+/// - 同时显示当前实际出声的播放引擎，便于确认走的是哪条播放路径。
 class _LocalOutputSection extends StatefulWidget {
   const _LocalOutputSection();
 
@@ -643,6 +650,8 @@ class _LocalOutputSection extends StatefulWidget {
 }
 
 class _LocalOutputSectionState extends State<_LocalOutputSection> {
+  static const _android = MethodChannel('flutify/audio_output');
+
   @override
   void initState() {
     super.initState();
@@ -659,58 +668,138 @@ class _LocalOutputSectionState extends State<_LocalOutputSection> {
     }
   }
 
+  Future<void> _openSystemSwitcher() async {
+    bool shown;
+    try {
+      shown = await _android.invokeMethod<bool>('showSystemOutputSwitcher') ?? false;
+    } catch (_) {
+      shown = false;
+    }
+    if (!shown && mounted) {
+      AppToast.show(
+        context,
+        context.l10n.audioOutputSystemUnavailable,
+        icon: Icons.speaker_rounded,
+        tone: ToastTone.warning,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_read(context) == null) return const SizedBox.shrink();
-    final service = context.watch<AudioOutputService?>()!;
+    final isAndroid = !kIsWeb && Platform.isAndroid;
+    final hasService = _read(context) != null;
+    if (!isAndroid && !hasService) return const SizedBox.shrink();
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final options = [
-      AudioOutputDevice.systemDefault,
-      ...service.devices,
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 6),
-          child: Row(
-            children: [
-              Expanded(
+    return ValueListenableBuilder<PlaybackEngineKind?>(
+      valueListenable: activePlaybackEngine,
+      builder: (context, engine, _) {
+        final header = Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6, top: 20),
+          child: Text(
+            l10n.audioOutputTitle,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        );
+        final engineLine = engine == null
+            ? null
+            : Padding(
+                padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
                 child: Text(
-                  l10n.audioOutputTitle,
-                  style: theme.textTheme.labelLarge?.copyWith(
+                  l10n.playbackEngineCurrent(_engineLabel(l10n, engine)),
+                  style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              );
+        if (isAndroid) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              header,
+              _DeviceTile(
+                icon: Icons.speaker_group_rounded,
+                title: l10n.audioOutputSystemSwitcher,
+                subtitle: l10n.audioOutputSystemSwitcherSubtitle,
+                onTap: () => unawaited(_openSystemSwitcher()),
+              ),
+              ?engineLine,
+            ],
+          );
+        }
+        final service = context.watch<AudioOutputService?>()!;
+        // Windows 的 WebView2 已能按设备名切换；Linux 的 Chrome EME 宿主暂不支持
+        final webView =
+            engine == PlaybackEngineKind.webView && Platform.isLinux;
+        final options = [AudioOutputDevice.systemDefault, ...service.devices];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(child: header),
+                if (service.loading)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 14),
+                    child: SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+              ],
+            ),
+            if (webView)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+                child: Text(
+                  l10n.audioOutputWebViewNote,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
                   ),
                 ),
               ),
-              if (service.loading)
-                const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+            Opacity(
+              opacity: webView ? 0.5 : 1,
+              child: IgnorePointer(
+                ignoring: webView,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final device in options)
+                      _DeviceTile(
+                        icon: device.isSystemDefault
+                            ? Icons.settings_suggest_rounded
+                            : _outputIcon(device.label),
+                        title: device.isSystemDefault
+                            ? l10n.audioOutputSystemDefault
+                            : device.label,
+                        subtitle: device.id == service.selected
+                            ? l10n.audioOutputSelected
+                            : null,
+                        selected: device.id == service.selected,
+                        onTap: () => unawaited(service.select(device.id)),
+                      ),
+                  ],
                 ),
-            ],
-          ),
-        ),
-        for (final device in options)
-          _DeviceTile(
-            icon: device.isSystemDefault
-                ? Icons.settings_suggest_rounded
-                : _outputIcon(device.label),
-            title: device.isSystemDefault
-                ? l10n.audioOutputSystemDefault
-                : device.label,
-            subtitle: device.id == service.selected
-                ? l10n.audioOutputSelected
-                : null,
-            selected: device.id == service.selected,
-            onTap: () => unawaited(service.select(device.id)),
-          ),
-      ],
+              ),
+            ),
+            ?engineLine,
+          ],
+        );
+      },
     );
   }
+
+  static String _engineLabel(AppLocalizations l10n, PlaybackEngineKind kind) =>
+      switch (kind) {
+        PlaybackEngineKind.localPlayer => l10n.playbackEngineLocal,
+        PlaybackEngineKind.webView => l10n.playbackEngineWebView,
+        PlaybackEngineKind.androidDrm => l10n.playbackEngineAndroid,
+      };
 
   /// 按设备名粗略区分耳机 / 扬声器图标。
   static IconData _outputIcon(String label) {

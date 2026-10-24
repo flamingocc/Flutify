@@ -63,7 +63,7 @@ class _LinuxWebLoginScreenState extends State<LinuxWebLoginScreen> {
     try {
       await tokens.prepareForLogin();
       if (tokens.hasSpDc) {
-        _finish(tokens.spDc, authorized: true);
+        _finish(tokens.spDc);
         return;
       }
       await LinuxChromeManager.instance.page(_loginUrl, visible: true);
@@ -99,16 +99,16 @@ class _LinuxWebLoginScreenState extends State<LinuxWebLoginScreen> {
       } catch (_) {}
       // 登录完成：关掉可见的 Chrome 窗口；之后全曲播放会以无窗口（headless）模式重新拉起。
       await LinuxChromeManager.instance.dispose();
-      _finish(spDc, authorized: true);
+      _finish(spDc);
     } catch (_) {}
   }
 
-  void _finish(String? spDc, {required bool authorized}) {
+  void _finish(String? spDc) {
     if (_done || !mounted) return;
     _done = true;
     _poll?.cancel();
     Navigator.of(context, rootNavigator: true).pop(
-      WebLoginResult(spDc: spDc, desktopAuthorized: authorized),
+      WebLoginResult(spDc: spDc),
     );
   }
 
@@ -129,7 +129,7 @@ class _LinuxWebLoginScreenState extends State<LinuxWebLoginScreen> {
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
           tooltip: l10n.commonClose,
-          onPressed: () => _finish(_tokens.spDc, authorized: _auth?.isSignedIn ?? false),
+          onPressed: () => _finish(_tokens.spDc),
         ),
       ),
       body: Column(

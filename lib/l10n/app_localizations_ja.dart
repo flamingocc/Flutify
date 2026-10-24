@@ -2005,4 +2005,31 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get audioOutputSelected => '出力中';
+
+  @override
+  String get audioOutputSystemSwitcher => '出力デバイスを選択';
+
+  @override
+  String get audioOutputSystemSwitcherSubtitle =>
+      'システムの出力パネルを開く：スピーカー、Bluetooth、有線イヤホン';
+
+  @override
+  String get audioOutputSystemUnavailable => 'このシステムには出力切り替えパネルがありません';
+
+  @override
+  String get audioOutputWebViewNote => 'ブラウザエンジンで再生中のため切り替えできません。システムの既定を使用します';
+
+  @override
+  String playbackEngineCurrent(String engine) {
+    return '再生エンジン：$engine';
+  }
+
+  @override
+  String get playbackEngineLocal => 'ローカルプレーヤー';
+
+  @override
+  String get playbackEngineWebView => 'WebView（ブラウザエンジン）';
+
+  @override
+  String get playbackEngineAndroid => 'Android ネイティブ';
 }

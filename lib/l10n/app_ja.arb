@@ -699,5 +699,13 @@
   "settingsFlymeLyricsSubtitle": "再生中、Meizu Flyme のステータスバーに現在の歌詞行を表示します",
   "audioOutputTitle": "このデバイスの音声出力",
   "audioOutputSystemDefault": "システムの既定",
-  "audioOutputSelected": "出力中"
+  "audioOutputSelected": "出力中",
+  "audioOutputSystemSwitcher": "出力デバイスを選択",
+  "audioOutputSystemSwitcherSubtitle": "システムの出力パネルを開く：スピーカー、Bluetooth、有線イヤホン",
+  "audioOutputSystemUnavailable": "このシステムには出力切り替えパネルがありません",
+  "audioOutputWebViewNote": "ブラウザエンジンで再生中のため切り替えできません。システムの既定を使用します",
+  "playbackEngineCurrent": "再生エンジン：{engine}",
+  "playbackEngineLocal": "ローカルプレーヤー",
+  "playbackEngineWebView": "WebView（ブラウザエンジン）",
+  "playbackEngineAndroid": "Android ネイティブ"
 }

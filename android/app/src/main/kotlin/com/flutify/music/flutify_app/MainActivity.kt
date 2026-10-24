@@ -12,6 +12,7 @@ class MainActivity : AudioServiceActivity() {
         UpdatePlugin.register(flutterEngine, this)
         // 歌词外显：Flyme 状态栏歌词、蓝牙（车机）媒体信息换歌词
         LyricBridgePlugin.register(flutterEngine, this)
+        AudioOutputPlugin.register(flutterEngine, this)
         if (!flutterEngine.plugins.has(AppleMusicBackgroundPlugin::class.java)) {
             flutterEngine.plugins.add(AppleMusicBackgroundPlugin())
         }

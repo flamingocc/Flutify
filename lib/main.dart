@@ -47,8 +47,6 @@ import 'services/eme/eme_player.dart';
 import 'services/eme/license_client.dart';
 import 'services/eme/native_drm_audio_engine.dart';
 import 'services/eme/native_drm_player.dart';
-import 'services/eme/windows_native_audio_engine.dart';
-import 'services/eme/windows_native_decryptor.dart';
 import 'services/connect/connect_play_request.dart';
 import 'services/connect/connect_service.dart';
 import 'services/connect/receiver/connect_receiver.dart';
@@ -207,27 +205,9 @@ Future<Widget> _initializeApp(ValueChanged<String> reportStage) async {
         await emePlayer.start();
       },
     );
-    final nativeExperiment =
-        Platform.isWindows &&
-        (const bool.fromEnvironment('FLUTIFY_NATIVE_WIDEVINE') ||
-            Platform.environment['FLUTIFY_NATIVE_WIDEVINE'] == '1');
-    if (nativeExperiment) {
-      debugPrint(
-        '[native-wv] Experimental native DRM enabled; WebView fallback retained',
-      );
-      drmEngine = WindowsNativeAudioEngine(
-        native: AudioPlayerService(),
-        fallback: webEngine,
-        decryptor: WindowsNativeDecryptor(
-          fetchCertificate: licenseClient.fetchCert,
-          postLicense: licenseClient.postLicense,
-        ),
-      );
-    } else {
-      drmEngine = webEngine;
-    }
+    drmEngine = webEngine;
   }
-  // 路由引擎：本地文件/流式 → just_audio；DRM 曲目 → EME / 原生 DRM
+  // 路由引擎：本地文件/流式 → just_audio；DRM 曲目 → EME（Android 为原生 DRM）
   final audioEngine = RoutedAudioEngine(
     local: audioPlayerService,
     eme: drmEngine,
@@ -591,6 +571,9 @@ class FlutifyApp extends StatelessWidget {
               onSelected: (id) => preferences.update(
                 preferences.prefs.copyWith(audioOutputDevice: id),
               ),
+              // WebView2 EME 出声时同样切到所选设备（按设备名匹配）
+              labelSink: (label) =>
+                  unawaited(EmePlayer.setOutputDeviceLabel(label)),
             );
           },
         ),

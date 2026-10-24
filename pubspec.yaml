@@ -73,6 +73,11 @@ dependencies:
   pinyin: ^3.3.0
   device_info_plus: ^13.3.0
 
+
+dependency_overrides:
+  # 本地补丁：WebView2 播放时允许本机 EME 页面选择音频输出设备，见 packages/flutter_inappwebview_windows/FLUTIFY_PATCH.md
+  flutter_inappwebview_windows:
+    path: packages/flutter_inappwebview_windows
 dev_dependencies:
   file_selector_platform_interface: ^2.7.0
   flutter_test:
