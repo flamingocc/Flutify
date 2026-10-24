@@ -202,14 +202,16 @@ class MD3ETheme {
       ),
 
       // Expressive Slider Theme
-      // MD3E：竖条手柄 + 手柄两侧留缝 + 末端停止点（year2023: false 即 2024 规范）
-      // ignore: deprecated_member_use
+      // Expressive Slider Theme（播放进度条为刻意的紧凑样式：圆点手柄 + 细轨道；
+      // 不启用 year2023: false，否则末端停止点会和各处自定义的圆点手柄混在一起）
       sliderTheme: SliderThemeData(
-        year2023: false,
         activeTrackColor: colorScheme.primary,
-        inactiveTrackColor: colorScheme.secondaryContainer,
-        thumbColor: colorScheme.primary,
-        overlayColor: colorScheme.primary.withAlpha(30),
+        inactiveTrackColor: colorScheme.onSurfaceVariant.withAlpha(50),
+        thumbColor: colorScheme.brightness == Brightness.dark ? Colors.white : colorScheme.onSurface,
+        overlayColor: colorScheme.primary.withAlpha(40),
+        trackHeight: 4.0,
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
       ),
 
       // MD3E 进度指示器：分段留缝 + 停止点
