@@ -25,6 +25,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  ApHandshakeKeys dco_decode_ap_handshake_keys(dynamic raw);
+
+  @protected
   BilingualLine dco_decode_bilingual_line(dynamic raw);
 
   @protected
@@ -91,6 +94,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
+
+  @protected
+  ApHandshakeKeys sse_decode_ap_handshake_keys(SseDeserializer deserializer);
 
   @protected
   BilingualLine sse_decode_bilingual_line(SseDeserializer deserializer);
@@ -171,6 +177,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_ap_handshake_keys(
+    ApHandshakeKeys self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_bilingual_line(BilingualLine self, SseSerializer serializer);
