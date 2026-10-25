@@ -5,7 +5,8 @@
 //! 是否交给这里由 Dart 侧决定（见 lib/services/network/http2_client.dart）。
 //! 证书同时信任系统证书库与 Mozilla 根证书（公司网络的 HTTPS 检查代理照常可用）。
 
-use std::sync::OnceLock;
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use tokio::runtime::Runtime;
@@ -40,20 +41,34 @@ pub fn runtime() -> &'static Runtime {
     })
 }
 
-/// 共享的 reqwest 客户端（同一连接池；HTTP/2 下同主机共用一条连接）。
-pub fn shared_client() -> &'static reqwest::Client {
-    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
-    CLIENT.get_or_init(|| {
-        reqwest::Client::builder()
-            // 代理由 Dart 侧判断：交到这里的都是直连，不读环境变量里的代理
-            .no_proxy()
-            .connect_timeout(Duration::from_secs(15))
-            .pool_idle_timeout(Duration::from_secs(90))
-            // 与 dart:io 一致：不自动跟随重定向，交给上层处理
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .expect("http client")
-    })
+/// 按代理地址缓存的 reqwest 客户端（同一代理共用连接池；HTTP/2 下同主机共用一条连接）。
+/// [proxy] 为空表示直连；否则为 `http://[user:pass@]host:port` 或 `socks5h://…`（由 Dart 侧按系统 /
+/// PAC / 手动设置算出）。代理地址无效时返回错误（以 `connect:` 开头，调用方可改走 Dart）。
+pub fn client_for(proxy: &str) -> Result<reqwest::Client, String> {
+    static CLIENTS: OnceLock<Mutex<HashMap<String, reqwest::Client>>> = OnceLock::new();
+    let clients = CLIENTS.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(client) = clients.lock().unwrap().get(proxy) {
+        return Ok(client.clone());
+    }
+    let mut builder = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(15))
+        .pool_idle_timeout(Duration::from_secs(90))
+        // 与 dart:io 一致：不自动跟随重定向，交给上层处理
+        .redirect(reqwest::redirect::Policy::none());
+    builder = if proxy.is_empty() {
+        // 直连：不读环境变量里的代理（选路由 Dart 决定）
+        builder.no_proxy()
+    } else {
+        builder.proxy(reqwest::Proxy::all(proxy).map_err(|e| format!("connect:bad proxy: {e}"))?)
+    };
+    let client = builder.build().map_err(|e| format!("connect:{e}"))?;
+    clients.lock().unwrap().insert(proxy.to_string(), client.clone());
+    Ok(client)
+}
+
+/// 直连客户端（测试与不需要代理的调用）。
+pub fn shared_client() -> reqwest::Client {
+    client_for("").expect("direct client")
 }
 
 fn classify(error: &reqwest::Error) -> String {
@@ -67,6 +82,7 @@ fn classify(error: &reqwest::Error) -> String {
 }
 
 async fn execute(
+    proxy: String,
     method: String,
     url: String,
     headers: Vec<HttpHeader>,
@@ -75,7 +91,7 @@ async fn execute(
 ) -> HttpResult {
     let method = reqwest::Method::from_bytes(method.as_bytes())
         .map_err(|e| format!("connect:bad method: {e}"))?;
-    let mut request = shared_client()
+    let mut request = client_for(&proxy)?
         .request(method, &url)
         .timeout(Duration::from_millis(timeout_ms.max(1)));
     for header in headers {
@@ -121,6 +137,7 @@ async fn execute(
 /// 发一个请求并读完整个响应体。在独立的 tokio 运行时上执行，调用方（frb 线程）只等待结果，
 /// 多个并发调用共享同一个连接池（HTTP/2 下即同一条连接）。
 pub async fn send(
+    proxy: String,
     method: String,
     url: String,
     headers: Vec<HttpHeader>,
@@ -128,7 +145,7 @@ pub async fn send(
     timeout_ms: u64,
 ) -> HttpResult {
     runtime()
-        .spawn(execute(method, url, headers, body, timeout_ms))
+        .spawn(execute(proxy, method, url, headers, body, timeout_ms))
         .await
         .map_err(|e| format!("request:task failed: {e}"))?
 }
@@ -149,14 +166,14 @@ mod tests {
     #[test]
     fn unreachable_host_is_a_connect_error() {
         // 127.0.0.1:1 没有监听：建连失败，属于可以安全改走其他通道的错误
-        let result = block(send("GET".into(), "https://127.0.0.1:1/".into(), vec![], vec![], 3000));
+        let result = block(send(String::new(), "GET".into(), "https://127.0.0.1:1/".into(), vec![], vec![], 3000));
         let error = result.err().expect("should fail");
         assert!(error.starts_with("connect:"), "{error}");
     }
 
     #[test]
     fn invalid_method_is_rejected_before_sending() {
-        let result = block(send("BAD METHOD".into(), "https://example.com/".into(), vec![], vec![], 3000));
+        let result = block(send(String::new(), "BAD METHOD".into(), "https://example.com/".into(), vec![], vec![], 3000));
         assert!(result.err().unwrap().starts_with("connect:"));
     }
 
@@ -165,6 +182,7 @@ mod tests {
     #[ignore]
     fn negotiates_http2_with_spotify() {
         let response = block(send(
+            String::new(),
             "GET".into(),
             "https://spclient.wg.spotify.com/".into(),
             vec![],

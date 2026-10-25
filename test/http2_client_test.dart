@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutify_app/services/network/http2_client.dart';
 import 'package:flutify_app/services/network/network_proxy.dart';
+import 'package:flutify_app/services/network/proxy_endpoint.dart';
 import 'package:flutify_app/services/network/proxy_mode.dart';
 import 'package:flutify_app/services/network/spotify_gateway.dart';
 import 'package:flutify_app/services/network/system_proxy.dart';
@@ -16,12 +17,14 @@ void main() {
   late NetworkProxy proxy;
   late List<String> viaDart;
   late List<String> viaRust;
+  late List<String> proxies;
 
   setUp(() {
     Http2Client.resetFailures();
     proxy = NetworkProxy(systemReader: () async => SystemProxySettings.none);
     viaDart = [];
     viaRust = [];
+    proxies = [];
   });
 
   http.Client dart() => MockClient((request) async {
@@ -31,6 +34,7 @@ void main() {
 
   Http2Client client({
     Future<rust.HttpResponseData> Function(
+      String proxy,
       String method,
       String url,
       List<rust.HttpHeaderEntry> headers,
@@ -43,8 +47,9 @@ void main() {
     enabledOverride: true,
     sendOverride:
         rustSend ??
-        (method, url, headers, body) async {
+        (proxy, method, url, headers, body) async {
           viaRust.add('$method ${Uri.parse(url).host} ${utf8.decode(body)}');
+          proxies.add(proxy);
           return rust.HttpResponseData(
             status: 200,
             headers: [
@@ -58,12 +63,13 @@ void main() {
         },
   );
 
-  test('直连的 Spotify API 走 Rust，响应头 / 体原样交回', () async {
+  test('直连的 Spotify API 走 Rust（代理参数为空），响应头 / 体原样交回', () async {
     final response = await client().post(
       Uri.parse('https://spclient.wg.spotify.com/collection/v2/write'),
       body: 'payload',
     );
     expect(viaRust, ['POST spclient.wg.spotify.com payload']);
+    expect(proxies, ['']);
     expect(viaDart, isEmpty);
     expect(response.statusCode, 200);
     expect(response.body, '{"ok":true}');
@@ -89,15 +95,45 @@ void main() {
     ]);
   });
 
-  test('开了手动代理：交给 Dart 网络层（代理 / 认证 / 隧道都在那边）', () async {
+  test('开了手动代理：仍走 Rust，带上代理地址（含百分号编码的用户名密码）', () async {
     await proxy.configure(
       mode: ProxyMode.manual,
       proxyHost: '127.0.0.1',
       proxyPort: 8888,
+      proxyUsername: 'u@x',
+      proxyPassword: 'p:w',
     );
     await client().get(Uri.parse('https://spclient.wg.spotify.com/x'));
-    expect(viaRust, isEmpty);
-    expect(viaDart, hasLength(1));
+    expect(viaDart, isEmpty);
+    expect(proxies, ['http://u%40x:p%3Aw@127.0.0.1:8888']);
+  });
+
+  test('系统代理（如 Clash 127.0.0.1:7890）：走 Rust 并带上代理；绕过列表里的主机直连', () async {
+    proxy = NetworkProxy(
+      systemReader: () async => const SystemProxySettings(
+        https: ProxyEndpoint('127.0.0.1', 7890),
+        bypass: ['api.spotify.com'],
+      ),
+    );
+    await proxy.configure(mode: ProxyMode.system);
+    await proxy.refreshSystem();
+    final c = client();
+    await c.get(Uri.parse('https://spclient.wg.spotify.com/x'));
+    await c.get(Uri.parse('https://api.spotify.com/v1/me'));
+    expect(viaDart, isEmpty);
+    expect(proxies, ['http://127.0.0.1:7890', '']);
+  });
+
+  test('系统 SOCKS5 代理：socks5h 地址（域名交给代理解析）', () async {
+    proxy = NetworkProxy(
+      systemReader: () async => const SystemProxySettings(
+        socks: ProxyEndpoint('10.0.0.2', 1080, type: ProxyType.socks5),
+      ),
+    );
+    await proxy.configure(mode: ProxyMode.system);
+    await proxy.refreshSystem();
+    await client().get(Uri.parse('https://spclient.wg.spotify.com/x'));
+    expect(proxies, ['socks5h://10.0.0.2:1080']);
   });
 
   test('启用了网关：交给 Dart（网关会改写地址并加网关头）', () async {
@@ -113,7 +149,7 @@ void main() {
   test('建连失败（请求未发出）：改走 Dart 重发，请求体不丢；连续失败后该主机不再尝试', () async {
     var attempts = 0;
     final c = client(
-      rustSend: (_, _, _, _) async {
+      rustSend: (_, _, _, _, _) async {
         attempts++;
         throw 'connect:tls handshake failed';
       },
@@ -131,7 +167,7 @@ void main() {
   });
 
   test('请求已发出后失败（超时）：不自动重发，避免重复写入', () async {
-    final c = client(rustSend: (_, _, _, _) async => throw 'timeout:operation timed out');
+    final c = client(rustSend: (_, _, _, _, _) async => throw 'timeout:operation timed out');
     await expectLater(
       c.post(Uri.parse('https://spclient.wg.spotify.com/x'), body: 'once'),
       throwsA(isA<http.ClientException>()),
@@ -141,7 +177,7 @@ void main() {
 
   test('3xx 且调用方要求跟随重定向：交给 Dart 照原样处理', () async {
     final c = client(
-      rustSend: (_, _, _, _) async => rust.HttpResponseData(
+      rustSend: (_, _, _, _, _) async => rust.HttpResponseData(
         status: 302,
         headers: const [rust.HttpHeaderEntry(name: 'location', value: '/y')],
         body: Uint8List(0),

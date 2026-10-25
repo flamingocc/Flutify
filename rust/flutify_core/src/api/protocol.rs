@@ -213,9 +213,11 @@ pub struct HttpResponseData {
     pub version: String,
 }
 
-/// 经 Rust HTTP/2 客户端发请求（仅直连；代理 / 网关由 Dart 侧判断后不走这里）。
+/// 经 Rust HTTP/2 客户端发请求。[proxy] 为空表示直连，否则为 Dart 侧选出的代理地址
+/// （`http://[user:pass@]host:port` / `socks5h://…`）；网关由 Dart 侧处理，不走这里。
 /// 错误以 `connect:`（未发出，可安全改走其他通道）/ `timeout:` / `request:` 开头。
 pub async fn http_send(
+    proxy: String,
     method: String,
     url: String,
     headers: Vec<HttpHeaderEntry>,
@@ -223,6 +225,7 @@ pub async fn http_send(
     timeout_ms: u64,
 ) -> Result<HttpResponseData, String> {
     let response = http_client::send(
+        proxy,
         method,
         url,
         headers

@@ -5,14 +5,14 @@ import 'package:http/http.dart' as http;
 
 import '../../core/rust_core.dart';
 import '../../src/rust/api/protocol.dart' as rust;
-import 'direct_route.dart';
 import 'network_proxy.dart';
+import 'rust_route.dart';
 
 /// Spotify API 请求经 Rust HTTP/2 客户端发送（一条连接多路复用），其余照旧走 [inner]。
 ///
-/// 只接管「直连、不走网关」的 Spotify API 请求：网关 / 代理（含 PAC、认证代理）、证书诊断都在
-/// Dart 网络层（[ProxyHttpOverrides]）里，这里不重做一遍。Rust 侧建连 / TLS 失败（请求尚未发出）
-/// 时改走 [inner] 重试，最坏情况就是现在的行为；同一主机连续失败后本次运行不再尝试。
+/// 接管不走网关的 Spotify API 请求（直连或经代理：代理地址由 [rustRouteFor] 按系统 / PAC / 手动设置
+/// 选出）；网关只在 Dart 网络层（[ProxyHttpOverrides]）实现，照旧走 [inner]。Rust 侧建连 / TLS 失败
+/// （请求尚未发出）时改走 [inner] 重试，最坏情况就是现在的行为；同一主机连续失败后本次运行不再尝试。
 class Http2Client extends http.BaseClient {
   final http.Client inner;
   final NetworkProxy _proxy;
@@ -20,6 +20,7 @@ class Http2Client extends http.BaseClient {
   /// 测试注入：替代 Rust 调用（null 时用 [rust.httpSend]）。
   @visibleForTesting
   final Future<rust.HttpResponseData> Function(
+    String proxy,
     String method,
     String url,
     List<rust.HttpHeaderEntry> headers,
@@ -63,15 +64,17 @@ class Http2Client extends http.BaseClient {
 
   bool get _enabled => enabledOverride ?? RustCore.ready;
 
-  Future<bool> _eligible(Uri url) async {
-    if (!_enabled || url.scheme != 'https' || !isApiHost(url.host)) return false;
-    if ((_connectFailures[url.host] ?? 0) >= maxConnectFailures) return false;
-    return isDirectRoute(url, proxy: _proxy);
+  /// Rust 应走的路线（见 [rustRouteFor]）；null 表示交给 [inner]。
+  Future<String?> _route(Uri url) async {
+    if (!_enabled || url.scheme != 'https' || !isApiHost(url.host)) return null;
+    if ((_connectFailures[url.host] ?? 0) >= maxConnectFailures) return null;
+    return rustRouteFor(url, proxy: _proxy);
   }
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    if (!await _eligible(request.url)) return inner.send(request);
+    final route = await _route(request.url);
+    if (route == null) return inner.send(request);
 
     // 请求体只能读一次：先读出来，Rust 失败需要改走 inner 时用副本重发
     final body = await request.finalize().toBytes();
@@ -83,8 +86,9 @@ class Http2Client extends http.BaseClient {
     try {
       final send = sendOverride;
       response = await (send != null
-          ? send(request.method, request.url.toString(), headers, body)
+          ? send(route, request.method, request.url.toString(), headers, body)
           : rust.httpSend(
+              proxy: route,
               method: request.method,
               url: request.url.toString(),
               headers: headers,

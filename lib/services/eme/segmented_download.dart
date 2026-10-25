@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/rust_core.dart';
 import '../../src/rust/api/network.dart' as rust_net;
 import '../../src/rust/api/protocol.dart' as rust;
-import '../network/direct_route.dart';
+import '../network/rust_route.dart';
 
 /// 多连接分段下载：把文件按 [segmentBytes] 切段，最多 [connections] 个 HTTP Range 请求并行拉取，
 /// 写进同一个文件的对应偏移。
@@ -19,8 +20,8 @@ import '../network/direct_route.dart';
 /// - [onContiguous] 报告从 0 开始已连续落盘的字节数，语义与单连接顺序下载一致；
 /// - 单段失败时换下一个 CDN 地址重试，累计 [maxAttemptsPerSegment] 次仍失败则整体失败。
 ///
-/// 直连时由 Rust（flutify_core `downloads::download_to_file`）完成同样的下载与写文件，CDN 支持
-/// HTTP/2 时多段共用一条连接；Rust 建连失败（一个字节都没收到）时退回下面的 Dart 实现。
+/// 不走网关时由 Rust（flutify_core `downloads::download_to_file`）完成同样的下载与写文件（直连或经
+/// 代理），CDN 支持 HTTP/2 时多段共用一条连接；Rust 建连失败（一个字节都没收到）时退回下面的 Dart 实现。
 class SegmentedDownload {
   final http.Client client;
   final List<String> urls;
@@ -57,24 +58,32 @@ class SegmentedDownload {
 
   /// 下载整个文件；完成时返回总字节数。
   Future<int> run() async {
-    if (RustCore.ready && await _allDirect()) {
-      final total = await _runRust();
-      if (total != null) return total;
+    if (RustCore.ready) {
+      final route = await _sharedRoute();
+      if (route != null) {
+        final total = await _runRust(route);
+        if (total != null) return total;
+      }
     }
     return _runDart();
   }
 
-  Future<bool> _allDirect() async {
+  /// 所有 CDN 地址走同一条路线（同一代理 / 都直连）时返回它；有地址要走网关或路线不一致时为 null。
+  Future<String?> _sharedRoute() async {
+    String? shared;
     for (final url in urls) {
-      if (!await isDirectRoute(Uri.parse(url))) return false;
+      final route = await rustRouteFor(Uri.parse(url));
+      if (route == null || (shared != null && route != shared)) return null;
+      shared = route;
     }
-    return true;
+    return shared;
   }
 
   /// Rust 下载；建连失败（尚未写入任何数据）时返回 null，交给 Dart 实现重试。
-  Future<int?> _runRust() async {
+  Future<int?> _runRust(String route) async {
     var wrote = false;
     await for (final e in rust_net.audioDownloadToFile(
+      proxy: route,
       urls: urls,
       headers: [
         for (final h in headers.entries)
@@ -95,7 +104,10 @@ class SegmentedDownload {
         case 3: // 完成
           return _total = e.total;
         case 4: // 失败
-          if (!wrote && e.message.startsWith('connect:')) return null;
+          if (!wrote && e.message.startsWith('connect:')) {
+            debugPrint('[download] Rust 建连失败，改用 Dart：${e.message}');
+            return null;
+          }
           throw HttpException(e.message.replaceFirst(RegExp('^[a-z]+:'), ''));
       }
     }

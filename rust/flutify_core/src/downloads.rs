@@ -38,8 +38,13 @@ pub const EVENT_ERROR: u8 = 4;
 /// 事件回调：返回 false 表示调用方已不再接收（取消）。
 pub type Emit = Arc<dyn Fn(DownloadEvent) -> bool + Send + Sync>;
 
-fn request(url: &str, headers: &[(String, String)], range: Option<(u64, Option<u64>)>) -> reqwest::RequestBuilder {
-    let mut builder = http_client::shared_client()
+fn request(
+    proxy: &str,
+    url: &str,
+    headers: &[(String, String)],
+    range: Option<(u64, Option<u64>)>,
+) -> Result<reqwest::RequestBuilder, String> {
+    let mut builder = http_client::client_for(proxy)?
         .get(url)
         .timeout(Duration::from_secs(120));
     for (name, value) in headers {
@@ -52,7 +57,7 @@ fn request(url: &str, headers: &[(String, String)], range: Option<(u64, Option<u
         };
         builder = builder.header("Range", value);
     }
-    builder
+    Ok(builder)
 }
 
 fn error_text(e: &reqwest::Error) -> String {
@@ -77,6 +82,7 @@ fn total_from_content_range(response: &reqwest::Response) -> Option<u64> {
 /// 先报一次元信息（status 与总长度），再逐块报数据，最后报完成或失败。
 /// 服务器忽略 Range（回 200）时从文件开头解密，调用方据 status 判断写入位置。
 pub async fn download_decrypt(
+    proxy: String,
     url: String,
     headers: Vec<(String, String)>,
     offset: u64,
@@ -84,7 +90,7 @@ pub async fn download_decrypt(
     iv: Vec<u8>,
     emit: Emit,
 ) {
-    let result = run_decrypt(&url, &headers, offset, &key, &iv, &emit).await;
+    let result = run_decrypt(&proxy, &url, &headers, offset, &key, &iv, &emit).await;
     match result {
         Ok(()) => {}
         Err(message) => {
@@ -94,6 +100,7 @@ pub async fn download_decrypt(
 }
 
 async fn run_decrypt(
+    proxy: &str,
     url: &str,
     headers: &[(String, String)],
     offset: u64,
@@ -102,7 +109,7 @@ async fn run_decrypt(
     emit: &Emit,
 ) -> Result<(), String> {
     let range = (offset > 0).then_some((offset, None));
-    let response = request(url, headers, range).send().await.map_err(|e| error_text(&e))?;
+    let response = request(proxy, url, headers, range)?.send().await.map_err(|e| error_text(&e))?;
     let status = response.status().as_u16();
     if status != 200 && status != 206 {
         return Err(format!("request:CDN 返回 HTTP {status}"));
@@ -142,6 +149,8 @@ async fn run_decrypt(
 // ---------------------------------------------------------------------------
 
 pub struct FileDownloadOptions {
+    /// 代理地址（空 = 直连），见 [http_client::client_for]。
+    pub proxy: String,
     pub urls: Vec<String>,
     pub headers: Vec<(String, String)>,
     pub path: String,
@@ -241,7 +250,11 @@ impl Shared {
                 return Ok(());
             }
             let url = self.next_url();
-            match request(&url, &self.options.headers, Some((start, Some(end)))).send().await {
+            let builder = match request(&self.options.proxy, &url, &self.options.headers, Some((start, Some(end)))) {
+                Ok(b) => b,
+                Err(e) => return Err(e),
+            };
+            match builder.send().await {
                 Ok(response) if response.status().as_u16() == 206 => {
                     match self.consume(response, index).await {
                         Ok(()) => {
@@ -293,7 +306,7 @@ async fn run_file(options: FileDownloadOptions, emit: Emit) -> Result<(), String
     });
 
     let url = shared.next_url();
-    let first = request(&url, &shared.options.headers, Some((0, Some(segment_bytes - 1))))
+    let first = request(&shared.options.proxy, &url, &shared.options.headers, Some((0, Some(segment_bytes - 1))))?
         .send()
         .await
         .map_err(|e| error_text(&e))?;
@@ -450,6 +463,7 @@ mod tests {
         let (emit, events) = collect();
         block(download_to_file(
             FileDownloadOptions {
+                proxy: String::new(),
                 urls: vec![url],
                 headers: vec![],
                 path: path.to_string_lossy().into(),
@@ -478,6 +492,7 @@ mod tests {
         let (emit, events) = collect();
         block(download_to_file(
             FileDownloadOptions {
+                proxy: String::new(),
                 urls: vec![url],
                 headers: vec![],
                 path: path.to_string_lossy().into(),
@@ -503,7 +518,7 @@ mod tests {
 
         for offset in [0u64, 1234] {
             let (emit, events) = collect();
-            block(download_decrypt(url.clone(), vec![], offset, key.clone(), iv.clone(), emit));
+            block(download_decrypt(String::new(), url.clone(), vec![], offset, key.clone(), iv.clone(), emit));
             let events = events.lock().unwrap();
             assert_eq!(events[0].kind, EVENT_META);
             assert_eq!(events[0].total, 4000);
@@ -525,14 +540,14 @@ mod tests {
             }
             true
         });
-        block(download_decrypt(url, vec![], 0, vec![], vec![], emit));
+        block(download_decrypt(String::new(), url, vec![], 0, vec![], vec![], emit));
         assert_eq!(count.load(Ordering::SeqCst), 1);
     }
 
     #[test]
     fn unreachable_cdn_is_a_connect_error() {
         let (emit, events) = collect();
-        block(download_decrypt("http://127.0.0.1:1/x".into(), vec![], 0, vec![], vec![], emit));
+        block(download_decrypt(String::new(), "http://127.0.0.1:1/x".into(), vec![], 0, vec![], vec![], emit));
         let events = events.lock().unwrap();
         assert_eq!(events.last().unwrap().kind, EVENT_ERROR);
         assert!(events.last().unwrap().message.starts_with("connect:"));

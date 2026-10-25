@@ -177,15 +177,18 @@ bool apRsaVerifyPkcs1Sha1({
 Future<String> sha256File({required String path}) =>
     RustLib.instance.api.crateApiProtocolSha256File(path: path);
 
-/// 经 Rust HTTP/2 客户端发请求（仅直连；代理 / 网关由 Dart 侧判断后不走这里）。
+/// 经 Rust HTTP/2 客户端发请求。[proxy] 为空表示直连，否则为 Dart 侧选出的代理地址
+/// （`http://[user:pass@]host:port` / `socks5h://…`）；网关由 Dart 侧处理，不走这里。
 /// 错误以 `connect:`（未发出，可安全改走其他通道）/ `timeout:` / `request:` 开头。
 Future<HttpResponseData> httpSend({
+  required String proxy,
   required String method,
   required String url,
   required List<HttpHeaderEntry> headers,
   required List<int> body,
   required BigInt timeoutMs,
 }) => RustLib.instance.api.crateApiProtocolHttpSend(
+  proxy: proxy,
   method: method,
   url: url,
   headers: headers,

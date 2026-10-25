@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import '../../core/rust_core.dart';
 import '../../src/rust/api/network.dart' as rust_net;
 import '../../src/rust/api/protocol.dart' as rust;
-import '../network/direct_route.dart';
+import '../network/rust_route.dart';
 
 /// dealer 长连接的最小传输抽象：只收发文本帧，便于测试时替换成内存实现。
 abstract class DealerChannel {
@@ -42,8 +44,9 @@ class WebSocketDealerChannel implements DealerChannel {
   Future<void> close() => _socket.close();
 }
 
-/// Rust WebSocket（tokio-tungstenite + rustls）。直连时使用；网关 / 代理，或 Rust 握手没连上
-/// （建连 / TLS 失败）时退回 dart:io 的 [WebSocketDealerChannel]。服务端拒绝握手（如令牌过期）不重试。
+/// Rust WebSocket（tokio-tungstenite + rustls）。直连或经代理（HTTP CONNECT / SOCKS5 隧道）时使用；
+/// 网关，或 Rust 握手没连上（建连 / 代理 / TLS 失败）时退回 dart:io 的 [WebSocketDealerChannel]。
+/// 服务端拒绝握手（如令牌过期）不重试。
 class RustDealerChannel implements DealerChannel {
   final int _id;
   final Stream<String> _messages;
@@ -58,9 +61,8 @@ class RustDealerChannel implements DealerChannel {
   static const Duration handshakeTimeout = Duration(seconds: 30);
 
   static Future<DealerChannel> connect(Uri uri, Map<String, String> headers) async {
-    if (!RustCore.ready || !await isDirectRoute(uri)) {
-      return WebSocketDealerChannel.connect(uri, headers);
-    }
+    final route = RustCore.ready ? await rustRouteFor(uri) : null;
+    if (route == null) return WebSocketDealerChannel.connect(uri, headers);
     final id = _nextId++;
     final messages = StreamController<String>();
     final opened = Completer<void>();
@@ -74,6 +76,7 @@ class RustDealerChannel implements DealerChannel {
     subscription = rust_net
         .websocketConnect(
           id: id,
+          proxy: route,
           url: uri.toString(),
           headers: [
             for (final h in headers.entries)
@@ -116,6 +119,7 @@ class RustDealerChannel implements DealerChannel {
         throw WebSocketException(e.message.replaceFirst(RegExp('^[a-z]+:'), ''));
       }
       // 建连 / TLS / 超时：Rust 这条路没连上，改用 dart:io 再试一次
+      debugPrint('[dealer] Rust WebSocket 未连上，改用 dart:io：$e');
       return WebSocketDealerChannel.connect(uri, headers);
     }
     return RustDealerChannel._(id, messages.stream, subscription, closed);

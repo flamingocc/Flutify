@@ -1,4 +1,5 @@
 //! 音频下载与 WebSocket 的 Dart 接口（事件经 StreamSink 推送；Dart 取消订阅即停止）。
+//! 各函数的 `proxy`：空 = 直连，否则为 Dart 侧选出的代理地址（见 http_client::client_for）。
 
 use std::sync::Arc;
 
@@ -42,6 +43,7 @@ fn download_emit(sink: StreamSink<AudioDownloadEvent>) -> Emit {
 /// AP 链路：从 [offset] 起下载并（[key] 非空时）AES-128-CTR 解密，逐块推送解密后的数据。
 pub fn audio_download_decrypt(
     sink: StreamSink<AudioDownloadEvent>,
+    proxy: String,
     url: String,
     headers: Vec<HttpHeaderEntry>,
     offset: i64,
@@ -50,6 +52,7 @@ pub fn audio_download_decrypt(
 ) {
     let emit = download_emit(sink);
     http_client::runtime().spawn(downloads::download_decrypt(
+        proxy,
         url,
         pairs(headers),
         offset.max(0) as u64,
@@ -62,6 +65,7 @@ pub fn audio_download_decrypt(
 /// EME 链路：多连接分段下载写入 [path]，推送「从 0 起连续可用字节」进度。
 pub fn audio_download_to_file(
     sink: StreamSink<AudioDownloadEvent>,
+    proxy: String,
     urls: Vec<String>,
     headers: Vec<HttpHeaderEntry>,
     path: String,
@@ -72,6 +76,7 @@ pub fn audio_download_to_file(
     let emit = download_emit(sink);
     http_client::runtime().spawn(downloads::download_to_file(
         FileDownloadOptions {
+            proxy,
             urls,
             headers: pairs(headers),
             path,
@@ -100,11 +105,12 @@ impl From<WsEvent> for WebSocketEvent {
 pub fn websocket_connect(
     sink: StreamSink<WebSocketEvent>,
     id: i64,
+    proxy: String,
     url: String,
     headers: Vec<HttpHeaderEntry>,
 ) {
     let emit: WsEmit = Arc::new(move |event: WsEvent| sink.add(event.into()).is_ok());
-    http_client::runtime().spawn(ws::connect(id as u64, url, pairs(headers), emit));
+    http_client::runtime().spawn(ws::connect(id as u64, proxy, url, pairs(headers), emit));
 }
 
 /// 发送文本帧；连接已关闭时返回错误。

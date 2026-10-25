@@ -12,12 +12,14 @@ import 'protocol.dart';
 
 /// AP 链路：从 [offset] 起下载并（[key] 非空时）AES-128-CTR 解密，逐块推送解密后的数据。
 Stream<AudioDownloadEvent> audioDownloadDecrypt({
+  required String proxy,
   required String url,
   required List<HttpHeaderEntry> headers,
   required PlatformInt64 offset,
   required List<int> key,
   required List<int> iv,
 }) => RustLib.instance.api.crateApiNetworkAudioDownloadDecrypt(
+  proxy: proxy,
   url: url,
   headers: headers,
   offset: offset,
@@ -27,6 +29,7 @@ Stream<AudioDownloadEvent> audioDownloadDecrypt({
 
 /// EME 链路：多连接分段下载写入 [path]，推送「从 0 起连续可用字节」进度。
 Stream<AudioDownloadEvent> audioDownloadToFile({
+  required String proxy,
   required List<String> urls,
   required List<HttpHeaderEntry> headers,
   required String path,
@@ -34,6 +37,7 @@ Stream<AudioDownloadEvent> audioDownloadToFile({
   required int connections,
   required int maxAttemptsPerSegment,
 }) => RustLib.instance.api.crateApiNetworkAudioDownloadToFile(
+  proxy: proxy,
   urls: urls,
   headers: headers,
   path: path,
@@ -45,10 +49,12 @@ Stream<AudioDownloadEvent> audioDownloadToFile({
 /// 建立 WebSocket 连接（[id] 由 Dart 分配），事件持续推送到连接关闭。
 Stream<WebSocketEvent> websocketConnect({
   required PlatformInt64 id,
+  required String proxy,
   required String url,
   required List<HttpHeaderEntry> headers,
 }) => RustLib.instance.api.crateApiNetworkWebsocketConnect(
   id: id,
+  proxy: proxy,
   url: url,
   headers: headers,
 );

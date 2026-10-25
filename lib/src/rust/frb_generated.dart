@@ -111,6 +111,7 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Stream<AudioDownloadEvent> crateApiNetworkAudioDownloadDecrypt({
+    required String proxy,
     required String url,
     required List<HttpHeaderEntry> headers,
     required PlatformInt64 offset,
@@ -119,6 +120,7 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Stream<AudioDownloadEvent> crateApiNetworkAudioDownloadToFile({
+    required String proxy,
     required List<String> urls,
     required List<HttpHeaderEntry> headers,
     required String path,
@@ -152,6 +154,7 @@ abstract class RustLibApi extends BaseApi {
   bool crateApiLyricsHasTranslationMarker({required String text});
 
   Future<HttpResponseData> crateApiProtocolHttpSend({
+    required String proxy,
     required String method,
     required String url,
     required List<HttpHeaderEntry> headers,
@@ -235,6 +238,7 @@ abstract class RustLibApi extends BaseApi {
 
   Stream<WebSocketEvent> crateApiNetworkWebsocketConnect({
     required PlatformInt64 id,
+    required String proxy,
     required String url,
     required List<HttpHeaderEntry> headers,
   });
@@ -446,6 +450,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Stream<AudioDownloadEvent> crateApiNetworkAudioDownloadDecrypt({
+    required String proxy,
     required String url,
     required List<HttpHeaderEntry> headers,
     required PlatformInt64 offset,
@@ -459,6 +464,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           callFfi: (port_) {
             final serializer = SseSerializer(generalizedFrbRustBinding);
             sse_encode_StreamSink_audio_download_event_Sse(sink, serializer);
+            sse_encode_String(proxy, serializer);
             sse_encode_String(url, serializer);
             sse_encode_list_http_header_entry(headers, serializer);
             sse_encode_i_64(offset, serializer);
@@ -476,7 +482,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             decodeErrorData: null,
           ),
           constMeta: kCrateApiNetworkAudioDownloadDecryptConstMeta,
-          argValues: [sink, url, headers, offset, key, iv],
+          argValues: [sink, proxy, url, headers, offset, key, iv],
           apiImpl: this,
         ),
       ),
@@ -487,11 +493,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiNetworkAudioDownloadDecryptConstMeta =>
       const TaskConstMeta(
         debugName: "audio_download_decrypt",
-        argNames: ["sink", "url", "headers", "offset", "key", "iv"],
+        argNames: ["sink", "proxy", "url", "headers", "offset", "key", "iv"],
       );
 
   @override
   Stream<AudioDownloadEvent> crateApiNetworkAudioDownloadToFile({
+    required String proxy,
     required List<String> urls,
     required List<HttpHeaderEntry> headers,
     required String path,
@@ -506,6 +513,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           callFfi: (port_) {
             final serializer = SseSerializer(generalizedFrbRustBinding);
             sse_encode_StreamSink_audio_download_event_Sse(sink, serializer);
+            sse_encode_String(proxy, serializer);
             sse_encode_list_String(urls, serializer);
             sse_encode_list_http_header_entry(headers, serializer);
             sse_encode_String(path, serializer);
@@ -526,6 +534,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           constMeta: kCrateApiNetworkAudioDownloadToFileConstMeta,
           argValues: [
             sink,
+            proxy,
             urls,
             headers,
             path,
@@ -545,6 +554,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         debugName: "audio_download_to_file",
         argNames: [
           "sink",
+          "proxy",
           "urls",
           "headers",
           "path",
@@ -751,6 +761,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<HttpResponseData> crateApiProtocolHttpSend({
+    required String proxy,
     required String method,
     required String url,
     required List<HttpHeaderEntry> headers,
@@ -761,6 +772,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(proxy, serializer);
           sse_encode_String(method, serializer);
           sse_encode_String(url, serializer);
           sse_encode_list_http_header_entry(headers, serializer);
@@ -778,7 +790,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_String,
         ),
         constMeta: kCrateApiProtocolHttpSendConstMeta,
-        argValues: [method, url, headers, body, timeoutMs],
+        argValues: [proxy, method, url, headers, body, timeoutMs],
         apiImpl: this,
       ),
     );
@@ -786,7 +798,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiProtocolHttpSendConstMeta => const TaskConstMeta(
     debugName: "http_send",
-    argNames: ["method", "url", "headers", "body", "timeoutMs"],
+    argNames: ["proxy", "method", "url", "headers", "body", "timeoutMs"],
   );
 
   @override
@@ -1387,6 +1399,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Stream<WebSocketEvent> crateApiNetworkWebsocketConnect({
     required PlatformInt64 id,
+    required String proxy,
     required String url,
     required List<HttpHeaderEntry> headers,
   }) {
@@ -1398,6 +1411,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             final serializer = SseSerializer(generalizedFrbRustBinding);
             sse_encode_StreamSink_web_socket_event_Sse(sink, serializer);
             sse_encode_i_64(id, serializer);
+            sse_encode_String(proxy, serializer);
             sse_encode_String(url, serializer);
             sse_encode_list_http_header_entry(headers, serializer);
             pdeCallFfi(
@@ -1412,7 +1426,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             decodeErrorData: null,
           ),
           constMeta: kCrateApiNetworkWebsocketConnectConstMeta,
-          argValues: [sink, id, url, headers],
+          argValues: [sink, id, proxy, url, headers],
           apiImpl: this,
         ),
       ),
@@ -1423,7 +1437,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiNetworkWebsocketConnectConstMeta =>
       const TaskConstMeta(
         debugName: "websocket_connect",
-        argNames: ["sink", "id", "url", "headers"],
+        argNames: ["sink", "id", "proxy", "url", "headers"],
       );
 
   @override

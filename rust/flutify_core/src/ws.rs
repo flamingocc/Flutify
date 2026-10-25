@@ -1,13 +1,16 @@
 //! WebSocket 客户端（tokio-tungstenite + rustls），Connect 的 dealer 长连接用。
 //!
 //! 连接由 Dart 侧分配的 id 标识：[connect] 建立并开始上报事件，[send] / [close] 按 id 操作。
-//! 只处理直连；网关 / 代理由 Dart 侧判断后改用 dart:io WebSocket。
+//! 代理（HTTP CONNECT / SOCKS5）由 Dart 侧算出地址后传入，这里自建隧道；网关仍走 dart:io WebSocket。
 //! 证书：系统证书库 + Mozilla 根证书（与 HTTP 客户端一致）。
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 
+use base64::Engine;
 use futures_util::{SinkExt, StreamExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http::HeaderValue;
@@ -62,8 +65,89 @@ pub fn tls_config() -> Arc<rustls::ClientConfig> {
         .clone()
 }
 
+/// 到 [host]:[port] 的 TCP 连接：直连，或经 [proxy]（`http://[user:pass@]h:p` 发 CONNECT 建隧道；
+/// `socks5://` / `socks5h://` 走 SOCKS5，可带用户名密码）。失败以 `connect:` 开头。
+async fn open_tcp(proxy: &str, host: &str, port: u16) -> Result<TcpStream, String> {
+    if proxy.is_empty() {
+        return TcpStream::connect((host, port)).await.map_err(|e| format!("connect:{e}"));
+    }
+    let proxy_url = reqwest::Url::parse(proxy).map_err(|e| format!("connect:bad proxy: {e}"))?;
+    let proxy_host = proxy_url.host_str().ok_or("connect:bad proxy host")?.trim_matches(['[', ']']).to_string();
+    let proxy_port = proxy_url.port_or_known_default().ok_or("connect:bad proxy port")?;
+    let user = urlencoding_decode(proxy_url.username());
+    let pass = urlencoding_decode(proxy_url.password().unwrap_or(""));
+    match proxy_url.scheme() {
+        "socks5" | "socks5h" => {
+            let stream = if user.is_empty() {
+                tokio_socks::tcp::Socks5Stream::connect((proxy_host.as_str(), proxy_port), (host, port)).await
+            } else {
+                tokio_socks::tcp::Socks5Stream::connect_with_password(
+                    (proxy_host.as_str(), proxy_port),
+                    (host, port),
+                    &user,
+                    &pass,
+                )
+                .await
+            };
+            stream.map(|s| s.into_inner()).map_err(|e| format!("connect:socks5: {e}"))
+        }
+        _ => {
+            let mut stream = TcpStream::connect((proxy_host.as_str(), proxy_port))
+                .await
+                .map_err(|e| format!("connect:proxy: {e}"))?;
+            let authority = if host.contains(':') { format!("[{host}]:{port}") } else { format!("{host}:{port}") };
+            let mut request = format!("CONNECT {authority} HTTP/1.1\r\nHost: {authority}\r\n");
+            if !user.is_empty() || !pass.is_empty() {
+                let token = base64::engine::general_purpose::STANDARD.encode(format!("{user}:{pass}"));
+                request.push_str(&format!("Proxy-Authorization: Basic {token}\r\n"));
+            }
+            request.push_str("\r\n");
+            stream.write_all(request.as_bytes()).await.map_err(|e| format!("connect:proxy: {e}"))?;
+            // 读到响应头结束（\r\n\r\n）；隧道建立前代理不会发送多余数据
+            let mut head = Vec::with_capacity(256);
+            let mut byte = [0u8; 1];
+            while !head.ends_with(b"\r\n\r\n") {
+                if head.len() > 16 * 1024 {
+                    return Err("connect:proxy: response too large".into());
+                }
+                let n = stream.read(&mut byte).await.map_err(|e| format!("connect:proxy: {e}"))?;
+                if n == 0 {
+                    return Err("connect:proxy closed during CONNECT".into());
+                }
+                head.push(byte[0]);
+            }
+            let status_line = String::from_utf8_lossy(&head);
+            let status_line = status_line.lines().next().unwrap_or("");
+            if status_line.split_whitespace().nth(1) != Some("200") {
+                return Err(format!("connect:proxy CONNECT failed: {status_line}"));
+            }
+            Ok(stream)
+        }
+    }
+}
+
+/// 代理地址里的用户名 / 密码是百分号编码的。
+fn urlencoding_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).ok();
+            if let Some(v) = hex.and_then(|h| u8::from_str_radix(h, 16).ok()) {
+                out.push(v);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 /// 建立连接并持续上报事件，直到连接关闭（本函数在连接结束后才返回）。
-pub async fn connect(id: u64, url: String, headers: Vec<(String, String)>, emit: WsEmit) {
+pub async fn connect(id: u64, proxy: String, url: String, headers: Vec<(String, String)>, emit: WsEmit) {
     let mut request = match url.as_str().into_client_request() {
         Ok(r) => r,
         Err(e) => {
@@ -79,10 +163,20 @@ pub async fn connect(id: u64, url: String, headers: Vec<(String, String)>, emit:
             request.headers_mut().insert(name, value);
         }
     }
-    let connected = tokio_tungstenite::connect_async_tls_with_config(
+    let uri = request.uri().clone();
+    let host = uri.host().unwrap_or("").trim_matches(['[', ']']).to_string();
+    let port = uri.port_u16().unwrap_or(if uri.scheme_str() == Some("wss") { 443 } else { 80 });
+    let tcp = match open_tcp(&proxy, &host, port).await {
+        Ok(tcp) => tcp,
+        Err(text) => {
+            emit(WsEvent { kind: WS_ERROR, text, code: 0 });
+            return;
+        }
+    };
+    let connected = tokio_tungstenite::client_async_tls_with_config(
         request,
+        tcp,
         None,
-        false,
         Some(Connector::Rustls(tls_config())),
     )
     .await;
@@ -217,7 +311,7 @@ mod tests {
                 sink.lock().unwrap().push(e);
                 true
             });
-            let task = tokio::spawn(connect(42, url, vec![("User-Agent".into(), "test".into())], emit));
+            let task = tokio::spawn(connect(42, String::new(), url, vec![("User-Agent".into(), "test".into())], emit));
             // 等连接建立
             for _ in 0..100 {
                 if events.lock().unwrap().iter().any(|e| e.kind == WS_OPEN) {
@@ -246,7 +340,7 @@ mod tests {
                 sink.lock().unwrap().push(e);
                 true
             });
-            let task = tokio::spawn(connect(7, url, vec![], emit));
+            let task = tokio::spawn(connect(7, String::new(), url, vec![], emit));
             for _ in 0..100 {
                 if events.lock().unwrap().iter().any(|e| e.kind == WS_OPEN) {
                     break;
@@ -259,6 +353,82 @@ mod tests {
         });
     }
 
+    /// 本地 HTTP CONNECT 代理（测试用）：记录 CONNECT 目标与认证头，建隧道后双向转发。
+    async fn connect_proxy(seen: Arc<Mutex<Vec<String>>>) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            while let Ok((mut client, _)) = listener.accept().await {
+                let seen = seen.clone();
+                tokio::spawn(async move {
+                    let mut head = Vec::new();
+                    let mut byte = [0u8; 1];
+                    while !head.ends_with(b"\r\n\r\n") {
+                        if client.read(&mut byte).await.unwrap() == 0 {
+                            return;
+                        }
+                        head.push(byte[0]);
+                    }
+                    let text = String::from_utf8_lossy(&head).to_string();
+                    seen.lock().unwrap().push(text.clone());
+                    let target = text.split_whitespace().nth(1).unwrap().to_string();
+                    let mut upstream = TcpStream::connect(target).await.unwrap();
+                    client.write_all(b"HTTP/1.1 200 Connection established\r\n\r\n").await.unwrap();
+                    let _ = tokio::io::copy_bidirectional(&mut client, &mut upstream).await;
+                });
+            }
+        });
+        format!("http://user%40x:p%3Ass@{addr}")
+    }
+
+    #[test]
+    fn connects_through_http_connect_proxy_with_credentials() {
+        runtime().block_on(async {
+            let url = echo_server().await;
+            let seen = Arc::new(Mutex::new(Vec::new()));
+            let proxy = connect_proxy(seen.clone()).await;
+            let events = Arc::new(Mutex::new(Vec::<WsEvent>::new()));
+            let sink = events.clone();
+            let emit: WsEmit = Arc::new(move |e| {
+                sink.lock().unwrap().push(e);
+                true
+            });
+            let task = tokio::spawn(connect(77, proxy, url.clone(), vec![], emit));
+            for _ in 0..200 {
+                if events.lock().unwrap().iter().any(|e| e.kind == WS_OPEN || e.kind == WS_ERROR) {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            send(77, "via proxy".into()).unwrap();
+            send(77, "bye".into()).unwrap();
+            tokio::time::timeout(Duration::from_secs(5), task).await.unwrap().unwrap();
+            let texts: Vec<String> = events.lock().unwrap().iter().filter(|e| e.kind == WS_TEXT).map(|e| e.text.clone()).collect();
+            assert_eq!(texts, vec!["echo:via proxy".to_string()]);
+            let request = seen.lock().unwrap()[0].clone();
+            let target = url.trim_start_matches("ws://").trim_end_matches('/');
+            assert!(request.starts_with(&format!("CONNECT {target} HTTP/1.1")), "{request}");
+            // user@x : p:ss 的 Basic 认证
+            let token = base64::engine::general_purpose::STANDARD.encode("user@x:p:ss");
+            assert!(request.contains(&format!("Proxy-Authorization: Basic {token}")), "{request}");
+        });
+    }
+
+    #[test]
+    fn proxy_refusing_connect_is_a_connect_error() {
+        runtime().block_on(async {
+            let events = Arc::new(Mutex::new(Vec::<WsEvent>::new()));
+            let sink = events.clone();
+            let emit: WsEmit = Arc::new(move |e| {
+                sink.lock().unwrap().push(e);
+                true
+            });
+            connect(2, "http://127.0.0.1:1".into(), "wss://dealer.spotify.com/".into(), vec![], emit).await;
+            let events = events.lock().unwrap();
+            assert!(events[0].text.starts_with("connect:"), "{:?}", events[0]);
+        });
+    }
+
     #[test]
     fn handshake_failure_is_a_connect_error() {
         runtime().block_on(async {
@@ -268,7 +438,7 @@ mod tests {
                 sink.lock().unwrap().push(e);
                 true
             });
-            connect(1, "ws://127.0.0.1:1/".into(), vec![], emit).await;
+            connect(1, String::new(), "ws://127.0.0.1:1/".into(), vec![], emit).await;
             let events = events.lock().unwrap();
             assert_eq!(events.len(), 1);
             assert_eq!(events[0].kind, WS_ERROR);
