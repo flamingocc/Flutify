@@ -136,7 +136,7 @@ void main() {
     expect(proxies, ['socks5h://10.0.0.2:1080']);
   });
 
-  test('启用了网关：交给 Dart（网关会改写地址并加网关头）', () async {
+  test('网关配置无效（缺账号密码）：交给 Dart，由它报出配置错误', () async {
     proxy.gateway = const SpotifyGateway(
       enabled: true,
       baseUrl: 'https://gateway.example/prefix',
@@ -145,6 +145,79 @@ void main() {
     expect(viaRust, isEmpty);
     expect(viaDart, hasLength(1));
   });
+
+  group('启用了有效网关', () {
+    const gateway = SpotifyGateway(
+      enabled: true,
+      baseUrl: 'https://gateway.example/prefix',
+      username: 'user',
+      password: 'pass',
+    );
+    late List<String> urls;
+    late List<Map<String, String>> sentHeaders;
+
+    Http2Client gatewayClient({int status = 200}) => client(
+      rustSend: (p, method, url, headers, body) async {
+        urls.add(url);
+        proxies.add(p);
+        sentHeaders.add({for (final h in headers) h.name: h.value});
+        return rust.HttpResponseData(
+          status: status,
+          headers: [
+            if (status >= 300)
+              const rust.HttpHeaderEntry(name: 'Location', value: '/y'),
+          ],
+          body: utf8.encode('rust'),
+          version: 'HTTP/2.0',
+        );
+      },
+    );
+
+    setUp(() {
+      urls = [];
+      sentHeaders = [];
+      proxy.gateway = gateway;
+    });
+
+    test('经 Rust 发往改写后的网关地址，带网关头，原请求头保留', () async {
+      final r = await gatewayClient().get(
+        Uri.parse('https://spclient.wg.spotify.com/x/y?a=1%2B2'),
+        headers: {'Authorization': 'Bearer t', 'X-Proxy-User': 'spoofed'},
+      );
+      expect(r.body, 'rust');
+      expect(viaDart, isEmpty);
+      expect(urls, [
+        'https://gateway.example/prefix/spclient.wg.spotify.com/x/y?a=1%2B2',
+      ]);
+      expect(sentHeaders.single['Authorization'], 'Bearer t');
+      // 网关头以配置为准，调用方传入的同名头不能覆盖
+      expect(sentHeaders.single['X-Proxy-User'], 'user');
+      expect(sentHeaders.single['X-Proxy-Pass'], 'pass');
+      expect(
+        sentHeaders.single.keys.where((k) => k.toLowerCase() == 'x-proxy-user'),
+        hasLength(1),
+      );
+    });
+
+    test('代理按网关主机选取', () async {
+      await proxy.configure(
+        mode: ProxyMode.manual,
+        proxyHost: '127.0.0.1',
+        proxyPort: 7890,
+        gateway: gateway,
+      );
+      await gatewayClient().get(Uri.parse('https://spclient.wg.spotify.com/x'));
+      expect(proxies, ['http://127.0.0.1:7890']);
+    });
+
+    test('重定向交回 Dart（相对原地址解析并重新经网关，凭据不跟到别处）', () async {
+      final r = await gatewayClient(status: 302).get(
+        Uri.parse('https://spclient.wg.spotify.com/x'),
+      );
+      expect(urls, hasLength(1));
+      expect(viaDart, ['GET spclient.wg.spotify.com ']);
+      expect(r.body, 'dart');
+    });  });
 
   test('建连失败（请求未发出）：改走 Dart 重发，请求体不丢；连续失败后该主机不再尝试', () async {
     var attempts = 0;

@@ -10,8 +10,8 @@ import 'rust_route.dart';
 
 /// Spotify API 请求经 Rust HTTP/2 客户端发送（一条连接多路复用），其余照旧走 [inner]。
 ///
-/// 接管不走网关的 Spotify API 请求（直连或经代理：代理地址由 [rustRouteFor] 按系统 / PAC / 手动设置
-/// 选出）；网关只在 Dart 网络层（[ProxyHttpOverrides]）实现，照旧走 [inner]。Rust 侧建连 / TLS 失败
+/// 接管 Spotify API 请求：直连、经代理或经网关（路线由 [rustRouteFor] 按系统 / PAC / 手动设置与
+/// 网关配置算出；走网关时请求发往改写后的网关地址并带网关头）。Rust 侧建连 / TLS 失败
 /// （请求尚未发出）时改走 [inner] 重试，最坏情况就是现在的行为；同一主机连续失败后本次运行不再尝试。
 class Http2Client extends http.BaseClient {
   final http.Client inner;
@@ -65,7 +65,7 @@ class Http2Client extends http.BaseClient {
   bool get _enabled => enabledOverride ?? RustCore.ready;
 
   /// Rust 应走的路线（见 [rustRouteFor]）；null 表示交给 [inner]。
-  Future<String?> _route(Uri url) async {
+  Future<RustRoute?> _route(Uri url) async {
     if (!_enabled || url.scheme != 'https' || !isApiHost(url.host)) return null;
     if ((_connectFailures[url.host] ?? 0) >= maxConnectFailures) return null;
     return rustRouteFor(url, proxy: _proxy);
@@ -79,18 +79,19 @@ class Http2Client extends http.BaseClient {
     // 请求体只能读一次：先读出来，Rust 失败需要改走 inner 时用副本重发
     final body = await request.finalize().toBytes();
     final headers = [
-      for (final e in request.headers.entries)
+      for (final e in route.mergeHeaders(request.headers).entries)
         rust.HttpHeaderEntry(name: e.key, value: e.value),
     ];
+    final url = route.url.toString();
     final rust.HttpResponseData response;
     try {
       final send = sendOverride;
       response = await (send != null
-          ? send(route, request.method, request.url.toString(), headers, body)
+          ? send(route.proxy, request.method, url, headers, body)
           : rust.httpSend(
-              proxy: route,
+              proxy: route.proxy,
               method: request.method,
-              url: request.url.toString(),
+              url: url,
               headers: headers,
               body: body,
               timeoutMs: BigInt.from(timeout.inMilliseconds),
