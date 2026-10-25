@@ -10,6 +10,7 @@ import '../../services/updates/update_service.dart';
 import 'package:material_3_expressive/material_3_expressive.dart' show M3EButton, M3EButtonStyle;
 import 'flutify_dialog.dart';
 import 'flutify_progress.dart';
+import 'release_notes_view.dart';
 
 Future<void> showUpdateDialog(BuildContext context, UpdateService service) => showDialog<void>(
   context: context,
@@ -37,7 +38,10 @@ Future<void> showUpdateDialog(BuildContext context, UpdateService service) => sh
                 ],
                 Text(l.updatesNotes, style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 8),
-                SelectableText(release?.notes.isNotEmpty == true ? release!.notes : l.updatesNoNotes),
+                if (release?.notes.isNotEmpty == true)
+                  ReleaseNotesView(release!.notes)
+                else
+                  Text(l.updatesNoNotes),
                 const SizedBox(height: 16),
                 UpdateProgress(service: service),
                 if (!service.canDownload) Text(l.updatesUnsupported),
