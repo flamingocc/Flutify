@@ -1300,7 +1300,7 @@ class PlaybackProvider extends ChangeNotifier {
     if (track == null) return;
     debugPrint(
       '[playback] 播放/暂停切换（playing=$isPlaybackActive, '
-      'loaded=${_loadedTrackId == track.id}）\n${StackTrace.current.toString().split('\n').skip(1).take(4).join('\n')}',
+      'loaded=${_loadedTrackId == track.id}）',
     );
 
     if (_isLoadingTrack) {
