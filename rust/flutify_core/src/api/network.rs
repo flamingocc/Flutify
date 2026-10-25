@@ -63,6 +63,7 @@ pub fn audio_download_decrypt(
 }
 
 /// EME 链路：多连接分段下载写入 [path]，推送「从 0 起连续可用字节」进度。
+#[allow(clippy::too_many_arguments)] // FFI 入口，参数与 Dart 调用一一对应
 pub fn audio_download_to_file(
     sink: StreamSink<AudioDownloadEvent>,
     proxy: String,
