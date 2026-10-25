@@ -72,6 +72,13 @@ class PlaybackProvider extends ChangeNotifier {
   /// 本机不再加载；[start] 为 null 表示从头播放整个上下文。为空或返回 false 时照常在本机播放。
   RemotePlayHandler? remotePlay;
 
+  /// 自动播放的曲目来源（由 main.dart 接上 Spotify 歌曲电台）：以 [seed] 为种子返回相似曲目与其上下文；
+  /// 没有结果时返回 null。为空时不自动播放。
+  Future<({List<SpotifyTrack> tracks, PlaybackContext context})?> Function(
+    SpotifyTrack seed,
+  )?
+  autoplaySource;
+
   /// 本机修改随机 / 循环时与服务端同步的钩子：等服务端确认后再在前端应用，彻底消除抖动。
   Future<bool> Function({bool? shuffle, SpotifyRepeatMode? repeat})?
   syncOptionsBeforeApply;
@@ -168,6 +175,7 @@ class PlaybackProvider extends ChangeNotifier {
   static const int failureLimit = 3;
 
   bool _pauseAfterFailures;
+  bool _autoplay;
 
   /// 最近一次播放失败（成功开始播放新曲目或调用 [clearPlaybackError] 后为 null）。
   PlaybackError? _playbackError;
@@ -269,6 +277,7 @@ class PlaybackProvider extends ChangeNotifier {
   }) : _audio = audio,
        _random = random ?? Random(),
        _pauseAfterFailures = _storage.pauseAfterFailures,
+       _autoplay = _storage.autoplay,
        _volume = _storage.volume,
        _volumeBeforeMute = _storage.volume > 0 ? _storage.volume : 0.8,
        _normalize = _storage.normalizeVolume,
@@ -312,6 +321,13 @@ class PlaybackProvider extends ChangeNotifier {
   /// 设置里的「默认循环方式」；null 表示不干预，循环方式由用户当场点的（或上次会话）决定。
   SpotifyRepeatMode? get defaultRepeatMode => _defaultRepeatMode;
 
+  /// 本次点歌应使用的循环方式（切换歌单 / 从头播放上下文时为默认循环方式）。
+  ///
+  /// 经 Connect 下发给本机播放端时要随请求带上：服务端回推的 replace_state 会携带播放选项
+  /// 并覆盖本机，不带的话默认循环方式就被服务端上一次的状态冲掉。
+  SpotifyRepeatMode get repeatModeForNextPlay => _repeatModeForNextPlay ?? _repeatMode;
+  SpotifyRepeatMode? _repeatModeForNextPlay;
+
   /// 设置页改动「默认循环方式」时同步进来。
   ///
   /// 它同时是当前循环方式：否则设置里选完要等下次启动才生效，
@@ -349,6 +365,16 @@ class PlaybackProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 列表播完（且未循环）后自动播放相似歌曲（设置页「播放」分组，持久化）。
+  bool get autoplay => _autoplay;
+
+  void setAutoplay(bool value) {
+    if (value == _autoplay) return;
+    _autoplay = value;
+    _storage.setAutoplay(value);
+    notifyListeners();
+  }
+
   /// 用户手动添加的待播队列（只读）。
   List<QueueEntry> get userQueue => List.unmodifiable(_userQueue);
 
@@ -356,7 +382,7 @@ class PlaybackProvider extends ChangeNotifier {
   bool get canSkipNext =>
       _userQueue.isNotEmpty ||
       _orderPos + 1 < _order.length ||
-      (_repeatMode == SpotifyRepeatMode.context && _order.isNotEmpty);
+      (_repeatMode != SpotifyRepeatMode.off && _order.isNotEmpty);
 
   /// 上下文中接下来要播放的曲目（按实际播放顺序），uid 为其在上下文中的下标。
   List<QueueEntry> get upNext {
@@ -574,7 +600,7 @@ class PlaybackProvider extends ChangeNotifier {
       _retriesUsed = 0;
       _transientRetried = false;
     }
-    _currentAudio = null;
+    _releaseCurrentAudio();
     _nextCycleOrder = null;
     _currentTrack = track;
     _duration = Duration(milliseconds: track.durationMs);
@@ -613,7 +639,7 @@ class PlaybackProvider extends ChangeNotifier {
     final generation = ++_loadGeneration;
     _cancelRetry();
     _loadedTrackId = null;
-    _currentAudio = null;
+    _releaseCurrentAudio();
     _currentDownloadReady = false;
     _prefetchedTrackId = null;
     _isStartingPlayback = true;
@@ -644,6 +670,8 @@ class PlaybackProvider extends ChangeNotifier {
       if (blocked || generation != _loadGeneration) return;
     }
     while (generation == _loadGeneration) {
+      // 已打开但还没交给播放器的音源：中途切歌 / 失败时要释放，否则下载会在后台一直跑完
+      LoadedAudio? opened;
       try {
         final loader = audioLoader;
         if (loader == null) {
@@ -668,6 +696,7 @@ class PlaybackProvider extends ChangeNotifier {
             if (generation == _loadGeneration) loadProgressNotifier.value = p;
           },
         );
+        opened = audio;
         if (generation != _loadGeneration) return; // 已切歌，丢弃
         final resumeAt = _resumeAt;
         // 新文件的均衡倍率；开启淡入时从静音起步，由进度流逐步升起
@@ -739,6 +768,10 @@ class PlaybackProvider extends ChangeNotifier {
         retryNotifier.value = null;
         await _handleLoadFailure(track, _asPlaybackFailure(e));
         return;
+      } finally {
+        if (opened != null && !identical(opened, _currentAudio)) {
+          opened.release();
+        }
       }
     }
   }
@@ -796,7 +829,7 @@ class PlaybackProvider extends ChangeNotifier {
         _consecutiveSkips < max(max(_order.length, _userQueue.length + 1), 1) &&
         (_userQueue.isNotEmpty ||
             _orderPos + 1 < _order.length ||
-            _repeatMode == SpotifyRepeatMode.context);
+            _repeatMode != SpotifyRepeatMode.off);
     final error = PlaybackError(
       serial: ++_errorSerial,
       track: track,
@@ -858,6 +891,13 @@ class PlaybackProvider extends ChangeNotifier {
     } else {
       unawaited(_handleLoadFailure(track, failure));
     }
+  }
+
+  /// 不再播放当前音源：交还给加载器（边下边播的下载没有其他使用者时会在宽限期后取消）。
+  void _releaseCurrentAudio() {
+    final audio = _currentAudio;
+    _currentAudio = null;
+    audio?.release();
   }
 
   void _setLoading(bool value) {
@@ -969,18 +1009,22 @@ class PlaybackProvider extends ChangeNotifier {
     PlaybackContext? context,
   }) async {
     final intent = ++_playIntent;
-    if (_isSwitchingContext(context)) {
-      _applyDefaultRepeatMode();
-    }
+    final switching = _isSwitchingContext(context);
     final remote = remotePlay;
-    if (remote != null &&
-        await remote(
-          context ?? PlaybackContext.none,
-          contextQueue ?? [track],
-          track,
-        ))
-      return;
+    _repeatModeForNextPlay = switching ? _defaultRepeatMode : null;
+    try {
+      if (remote != null &&
+          await remote(
+            context ?? PlaybackContext.none,
+            contextQueue ?? [track],
+            track,
+          ))
+        return;
+    } finally {
+      _repeatModeForNextPlay = null;
+    }
     if (intent != _playIntent) return;
+    if (switching) _applyDefaultRepeatMode();
     await _playLocal(
       track,
       contextQueue: contextQueue,
@@ -1024,7 +1068,12 @@ class PlaybackProvider extends ChangeNotifier {
     var tracks = (contextQueue == null || contextQueue.isEmpty)
         ? [track]
         : List.of(contextQueue);
-    var index = tracks.indexWhere((t) => t.id == track.id);
+    // 同一首歌可能在列表里出现多次：优先按对象身份定位到用户点的那一行，
+    // 找不到（调用方传的是另一份对象）再按 id 匹配。
+    var index = tracks.indexWhere((t) => identical(t, track));
+    if (index == -1 && track.id.isNotEmpty) {
+      index = tracks.indexWhere((t) => t.id == track.id);
+    }
     if (index == -1) {
       tracks = [track, ...tracks];
       index = 0;
@@ -1222,12 +1271,17 @@ class PlaybackProvider extends ChangeNotifier {
     PlaybackContext context,
   ) async {
     if (tracks.isEmpty) return;
-    // 切换歌单 / 从头播放上下文时应用设置的默认循环方式
-    _applyDefaultRepeatMode();
     final intent = ++_playIntent;
     final remote = remotePlay;
-    if (remote != null && await remote(context, tracks, null)) return;
+    _repeatModeForNextPlay = _defaultRepeatMode;
+    try {
+      if (remote != null && await remote(context, tracks, null)) return;
+    } finally {
+      _repeatModeForNextPlay = null;
+    }
     if (intent != _playIntent) return;
+    // 切换歌单 / 从头播放上下文时应用设置的默认循环方式（交给远程设备时不动本机设置）
+    _applyDefaultRepeatMode();
     final start = _shuffle ? _random.nextInt(tracks.length) : 0;
     await _playLocal(
       tracks[start],
@@ -1284,15 +1338,11 @@ class PlaybackProvider extends ChangeNotifier {
   }
 
   /// 下一首。[isAutoSkip] 表示由「不可播放自动跳过」触发（不重置连续跳过计数）。
+  ///
+  /// 单曲循环只作用于「自然播完」（见 [_handleTrackEnded]）；手动下一首 / 不可播放自动跳过
+  /// 都换到下一首，列表末尾按循环回绕——否则单曲循环时点下一首跳不走，
+  /// 坏掉的曲目也会被反复重试。
   Future<void> nextTrack({bool isAutoSkip = false}) async {
-    if (_repeatMode == SpotifyRepeatMode.track) {
-      // 单曲循环：同曲重来，同样受「连续跳过」限流（重试限流在 [_playAudio] 里按曲目算）
-      final track = _currentTrack;
-      if (track != null) {
-        await _startTrack(track, isRetry: isAutoSkip);
-        return;
-      }
-    }
     if (_userQueue.isNotEmpty) {
       await _startTrack(_userQueue.removeAt(0).track, isRetry: isAutoSkip);
       return;
@@ -1304,7 +1354,7 @@ class PlaybackProvider extends ChangeNotifier {
       return;
     }
 
-    if (_repeatMode == SpotifyRepeatMode.context && _order.isNotEmpty) {
+    if (_repeatMode != SpotifyRepeatMode.off && _order.isNotEmpty) {
       _order = _prepareNextCycle();
       _nextCycleOrder = null;
       _orderPos = 0;
@@ -1312,14 +1362,56 @@ class PlaybackProvider extends ChangeNotifier {
       return;
     }
 
-    // 上下文播放完毕：停在当前曲目开头
+    // 上下文播放完毕：开着自动播放就接着放相似歌曲，否则停在当前曲目开头
+    if (await _startAutoplay()) return;
     await pause();
     await seekTo(Duration.zero);
   }
 
+  /// 以当前曲目为种子取相似歌曲并从第一首开始播放；没开 / 取不到 / 期间用户已点了别的歌时返回 false。
+  ///
+  /// 走 [playTrack]（与用户点歌同一路径）：本机 Connect 播放端在线时经服务端下发，其他设备同步可见。
+  Future<bool> _startAutoplay() async {
+    final source = autoplaySource;
+    final seed = _currentTrack;
+    if (!_autoplay || source == null || seed == null) return false;
+    final intent = _playIntent;
+    final generation = _loadGeneration;
+    ({List<SpotifyTrack> tracks, PlaybackContext context})? result;
+    try {
+      result = await source(seed);
+    } catch (e) {
+      debugPrint('[autoplay] 取相似歌曲失败：$e');
+      return false;
+    }
+    // 等待期间用户已点了别的歌 / 换了曲目：不再插手
+    if (intent != _playIntent || generation != _loadGeneration) return true;
+    final tracks = [
+      for (final t in result?.tracks ?? const <SpotifyTrack>[])
+        if (t.id != seed.id) t,
+    ];
+    if (tracks.isEmpty) return false;
+    await playTrack(
+      tracks.first,
+      contextQueue: tracks,
+      context: result!.context,
+    );
+    return true;
+  }
+
+  /// 上一首（不论已播多久都直接切歌，见测试约定）；列表开头在循环模式下回绕到末尾。
   Future<void> previousTrack() async {
-    if (_orderPos == 0 || _order.isEmpty) {
+    if (_order.isEmpty) {
       await seekTo(Duration.zero);
+      return;
+    }
+    if (_orderPos == 0) {
+      if (_repeatMode == SpotifyRepeatMode.off || _order.length < 2) {
+        await seekTo(Duration.zero);
+        return;
+      }
+      _orderPos = _order.length - 1;
+      await _startTrack(_contextTracks[_order[_orderPos]]);
       return;
     }
     _orderPos--;
@@ -1411,7 +1503,7 @@ class PlaybackProvider extends ChangeNotifier {
     // 保存的是播放顺序，还原后按自然顺序即为原来的顺序
     _contextTracks = List.of(session.tracks);
     _order = List.generate(_contextTracks.length, (i) => i);
-    _orderPos = session.index;
+    _orderPos = _order.isEmpty ? 0 : session.index.clamp(0, _order.length - 1);
     for (final t in session.userQueue) {
       _userQueue.add(QueueEntry(_nextQueueUid++, t));
     }
@@ -1478,7 +1570,7 @@ class PlaybackProvider extends ChangeNotifier {
     _isStartingPlayback = false;
     _loadedTrackId = null;
     _currentTrack = null;
-    _currentAudio = null;
+    _releaseCurrentAudio();
     _nextCycleOrder = null;
     _context = PlaybackContext.none;
     _contextTracks = [];
@@ -1489,6 +1581,14 @@ class PlaybackProvider extends ChangeNotifier {
     _savedPosition = Duration.zero;
     _duration = Duration.zero;
     _isPlaying = false;
+    _isBuffering = false;
+    _playbackError = null;
+    _normalization = null;
+    _currentDownloadReady = false;
+    _prefetchedTrackId = null;
+    _consecutiveSkips = 0;
+    _fadeFactor = 1;
+    _applyVolume();
     positionNotifier.value = Duration.zero;
     loadProgressNotifier.value = 0;
     try {
@@ -1646,7 +1746,7 @@ class PlaybackProvider extends ChangeNotifier {
       regionGate?.onNetworkChanged = null;
     }
     ++_loadGeneration;
-    _currentAudio = null;
+    _releaseCurrentAudio();
     _cancelRetry();
     unawaited(flushSession()); // 快照同步生成，写文件在后台完成
     _posSub?.cancel();

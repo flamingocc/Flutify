@@ -27,9 +27,14 @@ class PlaybackSection extends StatelessWidget {
         .select<PreferencesProvider, SpotifyRepeatMode>(
           (p) => p.prefs.defaultRepeatMode,
         );
-    final (pauseAfterFailures, normalize, fadeSeconds) = context
-        .select<PlaybackProvider, (bool, bool, int)>(
-          (p) => (p.pauseAfterFailures, p.normalizeVolume, p.fadeSeconds),
+    final (autoplay, pauseAfterFailures, normalize, fadeSeconds) = context
+        .select<PlaybackProvider, (bool, bool, bool, int)>(
+          (p) => (
+            p.autoplay,
+            p.pauseAfterFailures,
+            p.normalizeVolume,
+            p.fadeSeconds,
+          ),
         );
 
     return SettingsSection(
@@ -62,6 +67,12 @@ class PlaybackSection extends StatelessWidget {
               playback.updateDefaultRepeatMode(v);
             },
           ),
+        ),
+        SettingsSwitchTile(
+          title: l10n.settingsAutoplay,
+          subtitle: l10n.settingsAutoplaySubtitle,
+          value: autoplay,
+          onChanged: playback.setAutoplay,
         ),
         SettingsSwitchTile(
           title: l10n.settingsPauseAfterFailures,

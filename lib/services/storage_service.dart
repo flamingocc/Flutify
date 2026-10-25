@@ -48,6 +48,7 @@ class StorageService {
   static const String _keyRecentSearches = 'sp_recent_searches';
   static const String _keyVolume = 'sp_volume';
   static const String _keyPauseAfterFailures = 'play_pause_after_failures';
+  static const String _keyAutoplay = 'play_autoplay';
   static const String _keyImmersiveScreen =
       'ui_immersive_screen'; // 沉浸式歌词铺满整个屏幕
   static const String _keyImmersivePinned =
@@ -327,10 +328,10 @@ class StorageService {
   String get email => _prefs.getString(_keyEmail) ?? '';
   Future<bool> setEmail(String value) => _prefs.setString(_keyEmail, value);
 
-  /// 是否已登录：桌面版会话且持有 refresh_token。
+  /// 是否已登录：桌面版或 Web 统一会话且持有 refresh_token 或 sp_dc。
   bool get isLoggedIn =>
       _prefs.getString(_keyAuthMethod) == _desktopSession &&
-      refreshToken.isNotEmpty;
+      (refreshToken.isNotEmpty || spDc.isNotEmpty);
 
   /// 清除全部登录态（登出）。device_id 保留（client-token 与之绑定）。
   Future<void> clearLogin() async {
@@ -364,6 +365,10 @@ class StorageService {
   bool get pauseAfterFailures => _prefs.getBool(_keyPauseAfterFailures) ?? true;
   Future<bool> setPauseAfterFailures(bool value) =>
       _prefs.setBool(_keyPauseAfterFailures, value);
+
+  /// 列表播完后自动播放相似歌曲（歌曲电台），与官方客户端「自动播放」一致，默认开启。
+  bool get autoplay => _prefs.getBool(_keyAutoplay) ?? true;
+  Future<bool> setAutoplay(bool value) => _prefs.setBool(_keyAutoplay, value);
 
   /// 沉浸式歌词是否进入系统全屏（铺满整个屏幕）；默认 false，只铺满窗口。
   bool get immersiveScreenFullscreen =>
