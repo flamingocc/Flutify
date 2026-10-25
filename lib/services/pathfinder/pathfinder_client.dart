@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../core/utils/json_bytes.dart';
 import 'pathfinder_operations.dart';
 
 /// GraphQL Pathfinder 客户端（`api-partner.spotify.com/pathfinder/v2/query`）。
@@ -32,7 +33,8 @@ class PathfinderClient {
 
     Object? json;
     try {
-      json = jsonDecode(utf8.decode(res.bodyBytes));
+      // 主页 / 专辑 / 艺人 / 搜索 / 歌单补全的响应可达数 MB：大响应在后台 Isolate 解码，不卡 UI
+      json = await decodeJsonBytes(res.bodyBytes);
     } catch (_) {}
     final data = json is Map<String, dynamic> ? json['data'] : null;
     if (res.statusCode != 200 || data is! Map<String, dynamic>) {

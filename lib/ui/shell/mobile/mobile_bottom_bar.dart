@@ -141,7 +141,9 @@ class _GlassNavigationPill extends StatelessWidget {
                   child: nav,
                 ),
               );
-              if (transitioning) return fill;
+              // 省电模式与 LiquidGlass 一致：不复制、不模糊下方画面。底栏压在每个页面的滚动内容上，
+              // 模糊开着时滚动的每一帧都要采样 + 模糊一次，是 Android 上的常驻开销
+              if (transitioning || tokens.powerSaving) return fill;
               return BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
                 child: fill,
