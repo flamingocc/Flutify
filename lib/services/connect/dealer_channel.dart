@@ -44,8 +44,9 @@ class WebSocketDealerChannel implements DealerChannel {
   Future<void> close() => _socket.close();
 }
 
-/// Rust WebSocket（tokio-tungstenite + rustls）。直连或经代理（HTTP CONNECT / SOCKS5 隧道）时使用；
-/// 网关，或 Rust 握手没连上（建连 / 代理 / TLS 失败）时退回 dart:io 的 [WebSocketDealerChannel]。
+/// Rust WebSocket（tokio-tungstenite + rustls）。直连、经代理（HTTP CONNECT / SOCKS5 隧道）或经网关
+/// （连改写后的网关地址并带网关头）时使用；网关配置无效，或 Rust 握手没连上（建连 / 代理 / TLS 失败）时
+/// 退回 dart:io 的 [WebSocketDealerChannel]。
 /// 服务端拒绝握手（如令牌过期）不重试。
 class RustDealerChannel implements DealerChannel {
   final int _id;
@@ -76,10 +77,10 @@ class RustDealerChannel implements DealerChannel {
     subscription = rust_net
         .websocketConnect(
           id: id,
-          proxy: route,
-          url: uri.toString(),
+          proxy: route.proxy,
+          url: route.url.toString(),
           headers: [
-            for (final h in headers.entries)
+            for (final h in route.mergeHeaders(headers).entries)
               rust.HttpHeaderEntry(name: h.key, value: h.value),
           ],
         )

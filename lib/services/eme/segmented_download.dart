@@ -68,25 +68,36 @@ class SegmentedDownload {
     return _runDart();
   }
 
-  /// 所有 CDN 地址走同一条路线（同一代理 / 都直连）时返回它；有地址要走网关或路线不一致时为 null。
-  Future<String?> _sharedRoute() async {
-    String? shared;
+  /// 所有 CDN 地址走同一条路线（同一代理、同样直连或同样经网关）时返回它（地址为改写后的实际地址）；
+  /// 有地址无法交给 Rust 或路线不一致时为 null。
+  Future<({String proxy, List<String> urls, Map<String, String> headers})?>
+  _sharedRoute() async {
+    RustRoute? first;
+    final targets = <String>[];
     for (final url in urls) {
       final route = await rustRouteFor(Uri.parse(url));
-      if (route == null || (shared != null && route != shared)) return null;
-      shared = route;
+      if (route == null) return null;
+      if (first != null &&
+          (route.proxy != first.proxy || route.viaGateway != first.viaGateway)) {
+        return null;
+      }
+      first ??= route;
+      targets.add(route.url.toString());
     }
-    return shared;
+    if (first == null) return null;
+    return (proxy: first.proxy, urls: targets, headers: first.mergeHeaders(headers));
   }
 
   /// Rust 下载；建连失败（尚未写入任何数据）时返回 null，交给 Dart 实现重试。
-  Future<int?> _runRust(String route) async {
+  Future<int?> _runRust(
+    ({String proxy, List<String> urls, Map<String, String> headers}) route,
+  ) async {
     var wrote = false;
     await for (final e in rust_net.audioDownloadToFile(
-      proxy: route,
-      urls: urls,
+      proxy: route.proxy,
+      urls: route.urls,
       headers: [
-        for (final h in headers.entries)
+        for (final h in route.headers.entries)
           rust.HttpHeaderEntry(name: h.key, value: h.value),
       ],
       path: dest.path,
