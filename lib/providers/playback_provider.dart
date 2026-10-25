@@ -72,6 +72,13 @@ class PlaybackProvider extends ChangeNotifier {
   /// 本机不再加载；[start] 为 null 表示从头播放整个上下文。为空或返回 false 时照常在本机播放。
   RemotePlayHandler? remotePlay;
 
+  /// 自动播放的曲目来源（由 main.dart 接上 Spotify 歌曲电台）：以 [seed] 为种子返回相似曲目与其上下文；
+  /// 没有结果时返回 null。为空时不自动播放。
+  Future<({List<SpotifyTrack> tracks, PlaybackContext context})?> Function(
+    SpotifyTrack seed,
+  )?
+  autoplaySource;
+
   /// 本机修改随机 / 循环时与服务端同步的钩子：等服务端确认后再在前端应用，彻底消除抖动。
   Future<bool> Function({bool? shuffle, SpotifyRepeatMode? repeat})?
   syncOptionsBeforeApply;
@@ -168,6 +175,7 @@ class PlaybackProvider extends ChangeNotifier {
   static const int failureLimit = 3;
 
   bool _pauseAfterFailures;
+  bool _autoplay;
 
   /// 最近一次播放失败（成功开始播放新曲目或调用 [clearPlaybackError] 后为 null）。
   PlaybackError? _playbackError;
@@ -269,6 +277,7 @@ class PlaybackProvider extends ChangeNotifier {
   }) : _audio = audio,
        _random = random ?? Random(),
        _pauseAfterFailures = _storage.pauseAfterFailures,
+       _autoplay = _storage.autoplay,
        _volume = _storage.volume,
        _volumeBeforeMute = _storage.volume > 0 ? _storage.volume : 0.8,
        _normalize = _storage.normalizeVolume,
@@ -353,6 +362,16 @@ class PlaybackProvider extends ChangeNotifier {
     if (value == _pauseAfterFailures) return;
     _pauseAfterFailures = value;
     _storage.setPauseAfterFailures(value);
+    notifyListeners();
+  }
+
+  /// 列表播完（且未循环）后自动播放相似歌曲（设置页「播放」分组，持久化）。
+  bool get autoplay => _autoplay;
+
+  void setAutoplay(bool value) {
+    if (value == _autoplay) return;
+    _autoplay = value;
+    _storage.setAutoplay(value);
     notifyListeners();
   }
 
@@ -1343,9 +1362,41 @@ class PlaybackProvider extends ChangeNotifier {
       return;
     }
 
-    // 上下文播放完毕：停在当前曲目开头
+    // 上下文播放完毕：开着自动播放就接着放相似歌曲，否则停在当前曲目开头
+    if (await _startAutoplay()) return;
     await pause();
     await seekTo(Duration.zero);
+  }
+
+  /// 以当前曲目为种子取相似歌曲并从第一首开始播放；没开 / 取不到 / 期间用户已点了别的歌时返回 false。
+  ///
+  /// 走 [playTrack]（与用户点歌同一路径）：本机 Connect 播放端在线时经服务端下发，其他设备同步可见。
+  Future<bool> _startAutoplay() async {
+    final source = autoplaySource;
+    final seed = _currentTrack;
+    if (!_autoplay || source == null || seed == null) return false;
+    final intent = _playIntent;
+    final generation = _loadGeneration;
+    ({List<SpotifyTrack> tracks, PlaybackContext context})? result;
+    try {
+      result = await source(seed);
+    } catch (e) {
+      debugPrint('[autoplay] 取相似歌曲失败：$e');
+      return false;
+    }
+    // 等待期间用户已点了别的歌 / 换了曲目：不再插手
+    if (intent != _playIntent || generation != _loadGeneration) return true;
+    final tracks = [
+      for (final t in result?.tracks ?? const <SpotifyTrack>[])
+        if (t.id != seed.id) t,
+    ];
+    if (tracks.isEmpty) return false;
+    await playTrack(
+      tracks.first,
+      contextQueue: tracks,
+      context: result!.context,
+    );
+    return true;
   }
 
   /// 上一首（不论已播多久都直接切歌，见测试约定）；列表开头在循环模式下回绕到末尾。

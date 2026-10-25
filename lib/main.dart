@@ -27,6 +27,7 @@ import 'core/utils/error_placeholder.dart';
 import 'core/utils/orientation_policy.dart';
 import 'l10n/app_locale.dart';
 import 'models/app_preferences.dart';
+import 'models/playback_context.dart';
 import 'models/playback_state.dart';
 import 'providers/appearance_provider.dart';
 import 'providers/auth_provider.dart';
@@ -474,6 +475,20 @@ class FlutifyApp extends StatelessWidget {
                 storageService.preferencesJson,
               ).defaultRepeatMode,
             );
+            // 自动播放：列表播完后以最后一首为种子播放其歌曲电台（与官方客户端相同的来源）
+            playback.autoplaySource = (seed) async {
+              final radio = await spotifyApiService.getSongRadio(seed);
+              final full = await spotifyApiService.getPlaylist(radio.id);
+              return (
+                tracks: full.tracks,
+                context: PlaybackContext.playlist(
+                  full.name.isNotEmpty ? full.name : seed.name,
+                  uri: full.uri.isNotEmpty
+                      ? full.uri
+                      : 'spotify:playlist:${radio.id}',
+                ),
+              );
+            };
             // 关窗前保存进度（进程退出时 Provider 不一定来得及 dispose）
             DesktopWindow.addBeforeCloseHook(playback.flushSession);
             // 与 App 同生命周期，不需要单独释放

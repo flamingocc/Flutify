@@ -473,6 +473,8 @@
   "settingsCornerStandard": "標準",
   "settingsCornerSquare": "方正",
   "settingsPlaybackSection": "播放",
+  "settingsAutoplay": "自動播放",
+  "settingsAutoplaySubtitle": "清單播完後自動播放相似的歌曲",
   "settingsPauseAfterFailures": "連續無法播放時暫停",
   "settingsPauseAfterFailuresSubtitle": "連續 {count} 首無法播放就停下，不再繼續自動跳過",
   "@settingsPauseAfterFailuresSubtitle": {

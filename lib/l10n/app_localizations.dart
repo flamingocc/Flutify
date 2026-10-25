@@ -1727,6 +1727,18 @@ abstract class AppLocalizations {
   /// **'播放'**
   String get settingsPlaybackSection;
 
+  /// No description provided for @settingsAutoplay.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动播放'**
+  String get settingsAutoplay;
+
+  /// No description provided for @settingsAutoplaySubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'列表播完后自动播放相似的歌曲'**
+  String get settingsAutoplaySubtitle;
+
   /// No description provided for @settingsPauseAfterFailures.
   ///
   /// In zh, this message translates to:

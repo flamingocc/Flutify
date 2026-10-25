@@ -893,6 +893,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsPlaybackSection => '再生';
 
   @override
+  String get settingsAutoplay => '自動再生';
+
+  @override
+  String get settingsAutoplaySubtitle => 'リストの再生が終わったら似た曲を自動で再生します';
+
+  @override
   String get settingsPauseAfterFailures => '再生に失敗し続けたら一時停止';
 
   @override

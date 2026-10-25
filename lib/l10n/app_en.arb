@@ -316,6 +316,8 @@
   "settingsCornerStandard": "Standard",
   "settingsCornerSquare": "Square",
   "settingsPlaybackSection": "Playback",
+  "settingsAutoplay": "Autoplay",
+  "settingsAutoplaySubtitle": "When your music ends, keep playing similar songs",
   "settingsPauseAfterFailures": "Pause when songs keep failing",
   "settingsPauseAfterFailuresSubtitle": "Stop auto-skipping after {count} unplayable songs in a row",
   "settingsMotionSection": "Motion",

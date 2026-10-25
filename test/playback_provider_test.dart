@@ -242,6 +242,81 @@ void main() {
     expect(playback.currentTrack?.id, a.id);
   });
 
+  group('autoplay', () {
+    const radio = PlaybackContext.playlist(
+      'Radio',
+      uri: 'spotify:playlist:radio',
+    );
+    final seeds = <String>[];
+
+    setUp(() {
+      seeds.clear();
+      playback.autoplaySource = (seed) async {
+        seeds.add(seed.id);
+        // 电台里常带种子曲目本身，应被去掉
+        return (tracks: [seed, x, a], context: radio);
+      };
+    });
+
+    test('列表播完后以最后一首为种子播放相似歌曲', () async {
+      expect(playback.autoplay, isTrue);
+      await playback.playTrack(c, contextQueue: [a, b, c], context: ctx);
+
+      await playback.nextTrack();
+
+      expect(seeds, [c.id]);
+      expect(playback.currentTrack?.id, x.id);
+      expect(playback.upNext.map((e) => e.track.id), [a.id]);
+    });
+
+    test('关闭后停在最后一首，且设置持久化', () async {
+      playback.setAutoplay(false);
+      expect((await StorageService.init()).autoplay, isFalse);
+      await playback.playTrack(c, contextQueue: [a, b, c], context: ctx);
+
+      await playback.nextTrack();
+
+      expect(seeds, isEmpty);
+      expect(playback.currentTrack?.id, c.id);
+    });
+
+    test('循环模式不触发；未到末尾不触发', () async {
+      await playback.playTrack(b, contextQueue: [a, b, c], context: ctx);
+      await playback.nextTrack();
+      expect(playback.currentTrack?.id, c.id);
+
+      playback.cycleRepeatMode();
+      await playback.nextTrack();
+      expect(playback.currentTrack?.id, a.id);
+      expect(seeds, isEmpty);
+    });
+
+    test('取不到相似歌曲时照旧停在最后一首', () async {
+      playback.autoplaySource = (_) async => throw Exception('offline');
+      await playback.playTrack(c, contextQueue: [a, b, c], context: ctx);
+
+      await playback.nextTrack();
+
+      expect(playback.currentTrack?.id, c.id);
+    });
+
+    test('等待期间用户点了别的歌：不覆盖', () async {
+      final pending = Completer<void>();
+      playback.autoplaySource = (seed) async {
+        await pending.future;
+        return (tracks: [x], context: radio);
+      };
+      await playback.playTrack(c, contextQueue: [a, b, c], context: ctx);
+
+      final ending = playback.nextTrack();
+      await playback.playTrack(a, contextQueue: [a, b], context: ctx);
+      pending.complete();
+      await ending;
+
+      expect(playback.currentTrack?.id, a.id);
+    });
+  });
+
   test('duplicate completed events only advance once', () async {
     await playback.playTrack(a, contextQueue: [a, b, c], context: ctx);
     audio.emitCompleted();

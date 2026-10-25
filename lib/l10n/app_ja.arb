@@ -262,6 +262,8 @@
   "settingsCornerStandard": "標準",
   "settingsCornerSquare": "四角",
   "settingsPlaybackSection": "再生",
+  "settingsAutoplay": "自動再生",
+  "settingsAutoplaySubtitle": "リストの再生が終わったら似た曲を自動で再生します",
   "settingsPauseAfterFailures": "再生に失敗し続けたら一時停止",
   "settingsPauseAfterFailuresSubtitle": "{count} 曲連続で再生できなかったら、自動スキップを停止します",
   "settingsMotionSection": "アニメーション",

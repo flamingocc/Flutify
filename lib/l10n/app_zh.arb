@@ -497,6 +497,8 @@
   "settingsCornerStandard": "标准",
   "settingsCornerSquare": "方正",
   "settingsPlaybackSection": "播放",
+  "settingsAutoplay": "自动播放",
+  "settingsAutoplaySubtitle": "列表播完后自动播放相似的歌曲",
   "settingsPauseAfterFailures": "连续无法播放时暂停",
   "settingsPauseAfterFailuresSubtitle": "连续 {count} 首无法播放就停下，不再继续自动跳过",
   "@settingsPauseAfterFailuresSubtitle": {

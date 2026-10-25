@@ -926,6 +926,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsPlaybackSection => 'Playback';
 
   @override
+  String get settingsAutoplay => 'Autoplay';
+
+  @override
+  String get settingsAutoplaySubtitle =>
+      'When your music ends, keep playing similar songs';
+
+  @override
   String get settingsPauseAfterFailures => 'Pause when songs keep failing';
 
   @override

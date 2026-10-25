@@ -896,6 +896,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsPlaybackSection => '播放';
 
   @override
+  String get settingsAutoplay => '自动播放';
+
+  @override
+  String get settingsAutoplaySubtitle => '列表播完后自动播放相似的歌曲';
+
+  @override
   String get settingsPauseAfterFailures => '连续无法播放时暂停';
 
   @override
@@ -2914,6 +2920,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsPlaybackSection => '播放';
+
+  @override
+  String get settingsAutoplay => '自動播放';
+
+  @override
+  String get settingsAutoplaySubtitle => '清單播完後自動播放相似的歌曲';
 
   @override
   String get settingsPauseAfterFailures => '連續無法播放時暫停';
