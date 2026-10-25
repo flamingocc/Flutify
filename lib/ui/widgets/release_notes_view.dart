@@ -2,6 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/theme/md3e_typography.dart';
+
 /// 发布说明（GitHub Release 正文）的 Markdown 渲染。
 ///
 /// 只实现发布说明里实际用到的子集，不引入第三方 Markdown 依赖：
@@ -130,7 +132,14 @@ class _ReleaseNotesViewState extends State<ReleaseNotesView> {
           TextSpan(
             text: m[2],
             style: TextStyle(
-              fontFamily: 'monospace',
+              // 与 embed_code_panel 一致的等宽字体；中文仍回退到 App 字族 MiSans
+              fontFamily: 'Consolas',
+              fontFamilyFallback: const [
+                'Menlo',
+                'Roboto Mono',
+                'monospace',
+                MD3ETypography.fontFamily,
+              ],
               backgroundColor: scheme.surfaceContainerHighest,
             ),
           ),
