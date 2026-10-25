@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../core/constants/spotify_endpoints.dart';
+import '../../core/utils/json_bytes.dart';
 import '../../models/album.dart';
 import '../../models/artist.dart';
 import '../../models/category.dart';
@@ -275,7 +276,8 @@ class DesktopDataSource {
       headers: await _headers(),
     );
     if (res.statusCode != 200) return null;
-    final data = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    // 大歌单每页可达数百 KB：解码放到后台 Isolate（见 decodeJsonBytes）
+    final data = await decodeJsonBytes(res.bodyBytes) as Map<String, dynamic>;
     final parsed = PathfinderParsers.playlistV2(id, data);
     if (parsed == null) return null;
 
@@ -296,7 +298,7 @@ class DesktopDataSource {
       if (pageResponse.statusCode != 200)
         throw StateError('Playlist page failed: ${pageResponse.statusCode}');
       final page =
-          jsonDecode(utf8.decode(pageResponse.bodyBytes))
+          await decodeJsonBytes(pageResponse.bodyBytes)
               as Map<String, dynamic>;
       final items = ((page['contents'] as Map?)?['items'] as List?) ?? const [];
       if (items.isEmpty)
