@@ -11,13 +11,14 @@ class UpdateVersion implements Comparable<UpdateVersion> {
       r'^v?(\d+)\.(\d+)(?:\.(\d+))?(?:-(alpha|beta|rc)(?:[.-]?(\d+))?)?(?:\+[\w.-]+)?$',
     ).firstMatch(tag);
     if (match == null) return null;
-    final major = int.parse(match[1]!);
-    final minor = int.parse(match[2]!);
-    final patch = match[3];
+    // v0.15 = 0.15.0、v0.16.1 = 0.16.1：两段式与三段式按同一规则比较，
+    // 否则 v0.17 会被当成比 v0.16.1 旧
     return UpdateVersion(
-      patch == null && major == 0
-          ? [0, 0, minor]
-          : [major, minor, int.parse(patch ?? '0')],
+      [
+        int.parse(match[1]!),
+        int.parse(match[2]!),
+        int.parse(match[3] ?? '0'),
+      ],
       match[4],
       int.parse(match[5] ?? '0'),
     );
